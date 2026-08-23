@@ -1,33 +1,32 @@
-import type { Metadata } from "next";
-import { Unbounded, Plus_Jakarta_Sans, Fira_Code } from "next/font/google";
-import "./globals.css";
-import { Header } from "@/components/layout/Header";
+import type { Metadata } from 'next';
+import { Inter, Plus_Jakarta_Sans, JetBrains_Mono } from 'next/font/google';
+import './globals.css';
+import { Header } from '@/components/layout/Header';
+import { Footer } from '@/components/layout/Footer';
+import { FloatingPricingButton } from '@/components/ui/FloatingPricingButton';
 
-const unbounded = Unbounded({
-  subsets: ["latin", "cyrillic"],
-  weight: ["600", "700", "800", "900"],
-  variable: "--font-unbounded",
-  display: "swap",
+const inter = Inter({
+  subsets: ['latin', 'cyrillic'],
+  variable: '--font-inter',
+  display: 'swap',
 });
 
-const jakarta = Plus_Jakarta_Sans({
-  subsets: ["latin", "cyrillic-ext"],
-  weight: ["400", "500", "600", "700"],
-  variable: "--font-sans",
-  display: "swap",
+const plusJakartaSans = Plus_Jakarta_Sans({
+  subsets: ['latin'],
+  variable: '--font-display',
+  display: 'swap',
 });
 
-const firaCode = Fira_Code({
-  subsets: ["latin", "cyrillic"],
-  weight: ["400", "500", "600"],
-  variable: "--font-mono",
-  display: "swap",
+const jetbrainsMono = JetBrains_Mono({
+  subsets: ['latin'],
+  variable: '--font-mono-math',
+  display: 'swap',
 });
 
 export const metadata: Metadata = {
-  title: "Volya Academy — Матеріали для викладачів математики",
+  title: 'VOLYA ACADEMY — Матеріали для викладачів математики 5–11 класів',
   description:
-    "Готові презентації, ігри, самостійні та контрольні роботи з математики 5–11 класів.",
+    'Готові презентації, інтерактивні HTML5-ігри, самостійні та контрольні роботи з математики для вчителів і репетиторів.',
 };
 
 export default function RootLayout({
@@ -38,11 +37,13 @@ export default function RootLayout({
   return (
     <html
       lang="uk"
-      className={`${unbounded.variable} ${jakarta.variable} ${firaCode.variable}`}
+      className={`${inter.variable} ${plusJakartaSans.variable} ${jetbrainsMono.variable}`}
     >
-      <body className="min-h-screen bg-[#F7F9FD] text-[#0D1117] font-sans antialiased selection:bg-[#1E56FF] selection:text-white">
+      <body className="min-h-screen bg-[#F7F9FD] text-[#0D1117] antialiased flex flex-col font-sans selection:bg-[#1E56FF] selection:text-white">
         <Header />
-        <main>{children}</main>
+        <main className="grow">{children}</main>
+        <Footer />
+        <FloatingPricingButton />
       </body>
     </html>
   );
