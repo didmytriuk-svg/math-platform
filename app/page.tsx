@@ -3,11 +3,11 @@ export const dynamic = 'force-dynamic';
 import Link from 'next/link';
 import { 
   Search, 
+  ArrowRight, 
   Sparkles, 
   ChevronRight,
   Check,
-  ShieldCheck,
-  Layers
+  ShieldCheck
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { MathParticles } from '@/components/ui/MathParticles';
@@ -44,7 +44,6 @@ export default async function HomePage() {
     console.warn('Database fallback on home page');
   }
 
-  // Резервні матеріали, якщо база щойно створена або ще не заповнена
   const fallbackMaterials = [
     {
       id: 'demo-1',
@@ -132,7 +131,7 @@ export default async function HomePage() {
       period: 'назавжди',
       desc: 'Повний перший блок тем будь-якого класу для тестування на уроці.',
       features: [
-        'Повний вступний блок уроків',
+        'Повний перший блок уроків',
         'Онлайн-перегляд усього каталогу',
         'Текстові плани та конспекти',
       ],
@@ -200,11 +199,12 @@ export default async function HomePage() {
 
   return (
     <div className="bg-volya-grid min-h-screen space-y-16 sm:space-y-24 py-8 sm:py-16 relative">
-      {/* 1. HERO СЕКЦІЯ (ТОЧНО ЗА СКРИНШОТОМ) */}
-      <section className="relative max-w-5xl mx-auto px-4 sm:px-6 text-center space-y-8 min-h-[440px] flex flex-col justify-center items-center">
-        <MathParticles />
+      {/* ГЛОБАЛЬНІ СУЗІР'Я НА ВСЮ СТОРІНКУ */}
+      <MathParticles />
 
-        <div className="relative z-10 space-y-8 w-full">
+      {/* 1. HERO СЕКЦІЯ */}
+      <section className="relative max-w-5xl mx-auto px-4 sm:px-6 text-center space-y-8 min-h-[440px] flex flex-col justify-center items-center z-10">
+        <div className="space-y-8 w-full">
           <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-[#EFF4FF] border border-[#D5E2FF] text-[#1E56FF] text-xs font-mono-math font-bold shadow-2xs">
             <Sparkles className="w-3.5 h-3.5" />
             <span>ВІДКРИТА БАЗА НАВЧАЛЬНИХ МАТЕРІАЛІВ</span>
@@ -245,7 +245,7 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {/* 2. ОБЕРІТЬ КЛАС (ТОЧНО ЗА СКРИНШОТОМ) */}
+      {/* 2. ОБЕРІТЬ КЛАС */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6 relative z-10">
         <div className="flex items-center justify-between">
           <div>
@@ -292,7 +292,7 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {/* 3. ТИПИ НАВЧАЛЬНИХ МАТЕРІАЛІВ (ТОЧНО ЗА СКРИНШОТОМ) */}
+      {/* 3. ТИПИ НАВЧАЛЬНИХ МАТЕРІАЛІВ */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
         <div className="bg-white border border-[#E2E8F4] rounded-3xl p-6 sm:p-10 shadow-xs space-y-6">
           <div>
@@ -318,7 +318,7 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {/* 4. НОВІ НАДХОДЖЕННЯ (ЗАВЖДИ ВІДОБРАЖАЮТЬСЯ) */}
+      {/* 4. НОВІ НАДХОДЖЕННЯ */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6 relative z-10">
         <div className="flex items-center justify-between">
           <div>
@@ -393,7 +393,7 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {/* 5. ІНТЕГРОВАНИЙ БЛОК ТАРИФІВ (4 ПЛАНИ) */}
+      {/* 5. ТАРИФНІ ПЛАНИ */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10 pt-4">
         <div className="bg-white border border-[#E2E8F4] rounded-3xl p-6 sm:p-10 shadow-xs space-y-8">
           <div className="text-center max-w-2xl mx-auto space-y-2">
@@ -485,7 +485,7 @@ export default async function HomePage() {
               className="font-display font-bold text-xs text-[#1E56FF] hover:underline inline-flex items-center gap-1"
             >
               Детальніше про умови ліцензій
-              <ChevronRight className="w-3.5 h-3.5" />
+              <ArrowRight className="w-3.5 h-3.5" />
             </Link>
           </div>
         </div>
