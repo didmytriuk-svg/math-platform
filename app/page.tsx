@@ -7,7 +7,9 @@ import {
   Sparkles, 
   ChevronRight,
   Check,
-  ShieldCheck
+  ShieldCheck,
+  LogIn,
+  KeyRound
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { MathParticles } from '@/components/ui/MathParticles';
@@ -199,15 +201,27 @@ export default async function HomePage() {
 
   return (
     <div className="bg-volya-grid min-h-screen space-y-16 sm:space-y-24 py-8 sm:py-16 relative">
-      {/* ГЛОБАЛЬНІ СУЗІР'Я НА ВСЮ СТОРІНКУ */}
+      {/* ГЛОБАЛЬНІ ІНТЕРАКТИВНІ СУЗІР'Я */}
       <MathParticles />
 
-      {/* 1. HERO СЕКЦІЯ */}
+      {/* 1. HERO СЕКЦІЯ З КНОПКОЮ ВХОДУ (LOGIN) */}
       <section className="relative max-w-5xl mx-auto px-4 sm:px-6 text-center space-y-8 min-h-[440px] flex flex-col justify-center items-center z-10">
         <div className="space-y-8 w-full">
-          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-[#EFF4FF] border border-[#D5E2FF] text-[#1E56FF] text-xs font-mono-math font-bold shadow-2xs">
-            <Sparkles className="w-3.5 h-3.5" />
-            <span>ВІДКРИТА БАЗА НАВЧАЛЬНИХ МАТЕРІАЛІВ</span>
+          
+          {/* Верхній блок бейджів: База + Кнопка Входу */}
+          <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-3">
+            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-[#EFF4FF] border border-[#D5E2FF] text-[#1E56FF] text-xs font-mono-math font-bold shadow-2xs">
+              <Sparkles className="w-3.5 h-3.5" />
+              <span>ВІДКРИТА БАЗА НАВЧАЛЬНИХ МАТЕРІАЛІВ</span>
+            </div>
+
+            <Link
+              href="/login"
+              className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-white hover:bg-[#EFF4FF] border border-[#D5E2FF] text-[#0D1117] hover:text-[#1E56FF] text-xs font-display font-bold shadow-2xs transition-all hover:scale-105"
+            >
+              <KeyRound className="w-3.5 h-3.5 text-[#1E56FF]" />
+              <span>Вхід за паролем</span>
+            </Link>
           </div>
 
           <div className="space-y-4 max-w-4xl mx-auto">
@@ -219,7 +233,8 @@ export default async function HomePage() {
             </p>
           </div>
 
-          <div className="max-w-2xl mx-auto w-full">
+          {/* Форма пошуку + Кнопка швидкого входу для вчителя */}
+          <div className="max-w-2xl mx-auto w-full space-y-3">
             <form
               action="/catalog"
               method="GET"
@@ -241,6 +256,16 @@ export default async function HomePage() {
                 Знайти
               </button>
             </form>
+
+            <div className="flex items-center justify-center gap-4 text-xs">
+              <Link
+                href="/login"
+                className="font-display font-bold text-[#1E56FF] hover:underline inline-flex items-center gap-1.5 py-1 px-2.5 rounded-lg hover:bg-white/60 transition-all"
+              >
+                <LogIn className="w-4 h-4" />
+                Вже маєте доступ? Увійти до кабінету
+              </Link>
+            </div>
           </div>
         </div>
       </section>
