@@ -21,9 +21,11 @@ export default function LoginPage() {
     setIsLoading(true);
 
     try {
-      // 1. Авторизація через Supabase Auth
+      const cleanEmail = email.trim().toLowerCase();
+
+      // 1. Авторизація
       const { data, error } = await supabase.auth.signInWithPassword({
-        email: email.trim(),
+        email: cleanEmail,
         password: password,
       });
 
@@ -38,24 +40,21 @@ export default function LoginPage() {
         throw new Error('Не вдалося отримати дані користувача');
       }
 
-      // 2. Перевіряємо роль користувача у таблиці profiles
+      // 2. Отримуємо профіль з бази
       const { data: profile } = await supabase
         .from('profiles')
         .select('role')
         .eq('id', data.user.id)
         .maybeSingle();
 
-      // 3. Розумний редирект: адмін -> /admin, викладач -> /catalog
+      // 3. Прямий перехід із жорстким оновленням стану
       if (profile?.role === 'admin') {
-        router.push('/admin');
+        window.location.href = '/admin';
       } else {
-        router.push('/catalog');
+        window.location.href = '/catalog';
       }
-      
-      router.refresh();
     } catch (err: any) {
       setErrorMsg(err.message || 'Помилка авторизації');
-    } finally {
       setIsLoading(false);
     }
   };
