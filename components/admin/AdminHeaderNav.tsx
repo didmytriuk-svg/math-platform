@@ -1,40 +1,67 @@
 'use client';
 
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { ArrowLeft, LogOut } from 'lucide-react';
+import { usePathname, useRouter } from 'next/navigation';
+import { Layers, PlusCircle, ListOrdered, Users, LogOut, ExternalLink } from 'lucide-react';
+import { createClient } from '@/lib/supabase/client';
 
 export function AdminHeaderNav() {
+  const pathname = usePathname();
   const router = useRouter();
+  const supabase = createClient();
 
   const handleLogout = async () => {
-    await fetch('/api/admin/auth/logout', { method: 'POST' });
+    await supabase.auth.signOut();
     router.push('/admin/login');
     router.refresh();
   };
 
-  return (
-    <div className="flex items-center justify-between">
-      <Link
-        href="/"
-        className="inline-flex items-center gap-2 text-xs font-display font-bold text-[#5E687E] hover:text-[#1E56FF] transition-colors"
-      >
-        <ArrowLeft className="w-4 h-4" />
-        На головну сайту
-      </Link>
+  const navItems = [
+    { label: 'Головна', href: '/admin', icon: Layers },
+    { label: 'Матеріали', href: '/admin/materials', icon: ListOrdered },
+    { label: 'Додати матеріал', href: '/admin/materials/new', icon: PlusCircle },
+    { label: 'Викладачі та доступи', href: '/admin/users', icon: Users },
+  ];
 
-      <div className="flex items-center gap-3">
-        <span className="text-xs font-mono-math font-semibold text-[#1E56FF] bg-[#EFF4FF] border border-[#D5E2FF] px-3 py-1 rounded-lg">
-          Вчительська панель
-        </span>
+  return (
+    <div className="bg-white border border-[#E2E8F4] rounded-2xl p-4 shadow-2xs flex flex-wrap items-center justify-between gap-3">
+      <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+        {navItems.map((item) => {
+          const Icon = item.icon;
+          const isActive = pathname === item.href;
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              className={`font-display font-bold text-xs px-3.5 py-2 rounded-xl transition-all inline-flex items-center gap-2 ${
+                isActive
+                  ? 'bg-[#1E56FF] text-white shadow-xs'
+                  : 'text-[#5E687E] hover:text-[#0D1117] hover:bg-[#F7F9FD]'
+              }`}
+            >
+              <Icon className="w-3.5 h-3.5" />
+              <span>{item.label}</span>
+            </Link>
+          );
+        })}
+      </div>
+
+      <div className="flex items-center gap-2 ml-auto">
+        <Link
+          href="/"
+          target="_blank"
+          className="font-display font-bold text-xs px-3 py-2 rounded-xl border border-[#E2E8F4] text-[#5E687E] hover:text-[#1E56FF] hover:border-[#1E56FF] transition-all inline-flex items-center gap-1.5"
+        >
+          <ExternalLink className="w-3.5 h-3.5" />
+          На сайт
+        </Link>
         <button
           type="button"
           onClick={handleLogout}
-          className="text-xs font-display font-bold text-[#5E687E] hover:text-red-600 p-1.5 rounded-lg transition-colors inline-flex items-center gap-1.5 cursor-pointer"
-          title="Вийти з акаунту"
+          className="font-display font-bold text-xs px-3 py-2 rounded-xl bg-red-50 text-red-600 hover:bg-red-100 transition-colors inline-flex items-center gap-1.5 cursor-pointer"
         >
           <LogOut className="w-3.5 h-3.5" />
-          <span className="hidden sm:inline">Вийти</span>
+          Вийти
         </button>
       </div>
     </div>

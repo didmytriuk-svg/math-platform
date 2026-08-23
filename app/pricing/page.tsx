@@ -1,21 +1,39 @@
 'use client';
 
+import { useState } from 'react';
 import Link from 'next/link';
 import { 
   Check, 
   Sparkles, 
-  Building2, 
-  User, 
-  Layers, 
-  CheckCircle2, 
   ArrowRight, 
-  ShieldCheck,
-  Download,
-  Gamepad2,
-  FileText
+  Download, 
+  Gamepad2, 
+  FileText, 
+  CreditCard, 
+  CheckCircle2, 
+  AlertCircle, 
+  Loader2, 
+  X,
+  Send
 } from 'lucide-react';
+import { createClient } from '@/lib/supabase/client';
 
 export default function PricingPage() {
+  const supabase = createClient();
+
+  // Стан модального вікна заявки на оплату
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedPlan, setSelectedPlan] = useState<any>(null);
+  const [selectedGradeId, setSelectedGradeId] = useState('');
+
+  const [fullName, setFullName] = useState('');
+  const [email, setEmail] = useState('');
+  const [contactInfo, setContactInfo] = useState('');
+
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSuccess, setIsSuccess] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
   const plans = [
     {
       id: 'free',
@@ -24,30 +42,23 @@ export default function PricingPage() {
       price: '0 грн',
       period: 'назавжди',
       description: 'Для знайомства з платформою та тестування матеріалів на уроці.',
-      target: 'Для всіх вчителів',
       features: [
         'Повний доступ до 1 обраного блоку/теми',
         'Всі презентації та ігри першого блоку',
         'Онлайн-перегляд тем та описів усього каталогу',
         'Базові конспекти та плани занять',
       ],
-      limitations: [
-        'Завантаження файлів інших блоків закрите',
-        'Контрольні з відповідями інших тем закриті',
-      ],
-      cta: 'Спробувати безкоштовно',
+      cta: 'Вільний каталог',
       href: '/catalog',
-      isPopular: false,
-      buttonClass: 'bg-[#F7F9FD] border border-[#E2E8F4] text-[#0D1117] hover:border-[#1E56FF] hover:text-[#1E56FF]',
+      isPrimary: false,
     },
     {
-      id: 'single-grade',
+      id: 'single_grade',
       name: 'Pro — один клас',
       badge: 'Для однієї паралелі',
       price: '290 грн',
       period: 'на 1 рік (~24 грн/міс)',
       description: 'Повний методичний комплект матеріалів для обраного вами класу.',
-      target: 'Вчитель однієї паралелі',
       features: [
         'Повний доступ до всіх тем обраного класу (5–11)',
         'Усі презентації PPTX + конспекти DOCX',
@@ -55,20 +66,16 @@ export default function PricingPage() {
         'Контрольні та самостійні роботи у 2–4 варіантах',
         'Готові розвʼязки та критерії оцінювання',
       ],
-      limitations: [],
-      cta: 'Обрати клас (290 грн/рік)',
-      href: '#checkout-single',
-      isPopular: false,
-      buttonClass: 'bg-white border-2 border-[#1E56FF] text-[#1E56FF] hover:bg-[#1E56FF] hover:text-white shadow-2xs',
+      cta: 'Оформити доступ (290 грн)',
+      isPrimary: false,
     },
     {
-      id: 'all-access',
+      id: 'all_access',
       name: 'Pro — весь каталог',
       badge: 'Вибір 90% викладачів',
       price: '890 грн',
       period: 'на 1 рік (~74 грн/міс)',
       description: 'Повний безліміт до всіх 5–11 класів, включно з усіма новими оновленнями.',
-      target: 'Вчителі з кількома класами та репетитори',
       features: [
         'Безлімітний доступ до всіх класів (5, 6, 7, 8, 9, 10, 11)',
         'Усі інтерактивні HTML5-ігри (на весь екран, без реклами)',
@@ -77,11 +84,8 @@ export default function PricingPage() {
         'Усі нові матеріали, які додаються протягом року',
         'Пріоритетна підтримка методиста',
       ],
-      limitations: [],
-      cta: 'Отримати повний доступ',
-      href: '#checkout-all',
-      isPopular: true,
-      buttonClass: 'bg-[#1E56FF] text-white hover:bg-[#0D33B3] shadow-md hover:shadow-lg',
+      cta: 'Оформити All-Access (890 грн)',
+      isPrimary: true,
     },
     {
       id: 'school',
@@ -90,7 +94,6 @@ export default function PricingPage() {
       price: '3 900 грн',
       period: 'на 1 рік за всю школу',
       description: 'Корпоративна ліцензія для всіх учителів математики навчального закладу.',
-      target: 'Школи, ліцеї та освітні центри',
       features: [
         'Необмежена кількість вчителів математики школи',
         'Офіційний договір та рахунок для юросіб/казначейства',
@@ -98,13 +101,43 @@ export default function PricingPage() {
         'Брендування матеріалів під заклад (за запитом)',
         'Персональний методичний супровід',
       ],
-      limitations: [],
-      cta: 'Оформити рахунок для школи',
-      href: '#contact-school',
-      isPopular: false,
-      buttonClass: 'bg-[#0D1117] text-white hover:bg-[#1E56FF] shadow-xs',
+      cta: 'Рахунок для школи',
+      isPrimary: false,
     },
   ];
+
+  const handleOpenCheckout = (plan: any) => {
+    if (plan.id === 'free') return;
+    setSelectedPlan(plan);
+    setIsSuccess(false);
+    setErrorMsg(null);
+    setIsModalOpen(true);
+  };
+
+  const handleSendPaymentRequest = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setErrorMsg(null);
+    setIsSubmitting(true);
+
+    try {
+      const { error } = await supabase.from('access_requests').insert({
+        email: email.trim(),
+        full_name: fullName.trim(),
+        phone_or_telegram: contactInfo.trim() || null,
+        subscription_tier: selectedPlan.id,
+        grade_id: selectedPlan.id === 'single_grade' ? selectedGradeId || null : null,
+        status: 'pending',
+      });
+
+      if (error) throw error;
+
+      setIsSuccess(true);
+    } catch (err: any) {
+      setErrorMsg(err.message || 'Не вдалося надіслати заявку. Спробуйте ще раз.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-volya-grid py-12 sm:py-16">
@@ -113,28 +146,28 @@ export default function PricingPage() {
         <div className="text-center max-w-3xl mx-auto space-y-3">
           <div className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full bg-[#EFF4FF] border border-[#D5E2FF] text-[#1E56FF] text-xs font-mono-math font-bold">
             <Sparkles className="w-3.5 h-3.5" />
-            Прозорі тарифи без прихованих автосписань
+            Пряма активація доступу
           </div>
           <h1 className="font-display font-black text-3xl sm:text-5xl text-[#0D1117] tracking-tight">
             Обирайте рівень доступу до матеріалів
           </h1>
           <p className="text-xs sm:text-sm text-[#5E687E] leading-relaxed">
-            Почніть із безкоштовного ознайомчого блоку або отримайте повний комплект для одного класу чи всієї паралелі 5–11 класів.
+            Оплата на картку / IBAN без обов&apos;язкових автоматичних списань. Пароль та доступ надсилаються вам одразу після підтвердження.
           </p>
         </div>
 
-        {/* Тарифна сітка 4 планів */}
+        {/* Тарифні картки */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 items-stretch">
           {plans.map((plan) => (
             <div
               key={plan.id}
               className={`bg-white border rounded-3xl p-6 sm:p-7 flex flex-col justify-between transition-all duration-200 relative ${
-                plan.isPopular
+                plan.isPrimary
                   ? 'border-[#1E56FF] shadow-xl ring-2 ring-[#1E56FF]/20 lg:-translate-y-2'
                   : 'border-[#E2E8F4] shadow-xs hover:border-[#1E56FF]/40'
               }`}
             >
-              {plan.isPopular && (
+              {plan.isPrimary && (
                 <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-[#1E56FF] text-white text-[10px] font-display font-black uppercase tracking-wider px-3 py-0.5 rounded-full shadow-xs whitespace-nowrap">
                   {plan.badge}
                 </div>
@@ -142,7 +175,7 @@ export default function PricingPage() {
 
               <div className="space-y-5">
                 <div>
-                  {!plan.isPopular && (
+                  {!plan.isPrimary && (
                     <span className="text-[10px] font-mono-math font-bold text-[#5E687E] uppercase tracking-wider bg-[#F7F9FD] border border-[#E2E8F4] px-2 py-0.5 rounded-md">
                       {plan.badge}
                     </span>
@@ -177,83 +210,166 @@ export default function PricingPage() {
                         <span>{feat}</span>
                       </li>
                     ))}
-                    {plan.limitations.map((lim, idx) => (
-                      <li key={`lim-${idx}`} className="flex items-start gap-2 text-xs text-[#94A3B8] leading-tight line-through">
-                        <span className="w-3.5 h-3.5 text-[#94A3B8] text-center font-mono-math shrink-0">✕</span>
-                        <span>{lim}</span>
-                      </li>
-                    ))}
                   </ul>
                 </div>
               </div>
 
               <div className="pt-6">
-                <Link
-                  href={plan.href}
-                  className={`w-full py-3 px-4 rounded-xl font-display font-bold text-xs text-center block transition-all ${plan.buttonClass}`}
-                >
-                  {plan.cta}
-                </Link>
+                {plan.id === 'free' ? (
+                  <Link
+                    href="/catalog"
+                    className="w-full py-3 px-4 rounded-xl font-display font-bold text-xs text-center block transition-all bg-[#F7F9FD] border border-[#E2E8F4] text-[#0D1117] hover:border-[#1E56FF] hover:text-[#1E56FF]"
+                  >
+                    {plan.cta}
+                  </Link>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => handleOpenCheckout(plan)}
+                    className={`w-full py-3 px-4 rounded-xl font-display font-bold text-xs text-center block transition-all cursor-pointer ${
+                      plan.isPrimary
+                        ? 'bg-[#1E56FF] text-white hover:bg-[#0D33B3] shadow-md hover:shadow-lg'
+                        : 'bg-white border-2 border-[#1E56FF] text-[#1E56FF] hover:bg-[#1E56FF] hover:text-white shadow-2xs'
+                    }`}
+                  >
+                    {plan.cta}
+                  </button>
+                )}
               </div>
             </div>
           ))}
         </div>
 
-        {/* Блок порівняння та довіри */}
-        <div className="bg-white border border-[#E2E8F4] rounded-3xl p-6 sm:p-10 shadow-xs space-y-8">
-          <div className="text-center max-w-xl mx-auto">
-            <h3 className="font-display font-black text-xl sm:text-2xl text-[#0D1117]">
-              Методичний стандарт платформи
-            </h3>
-            <p className="text-xs text-[#5E687E] mt-1">
-              Усі матеріали розроблені відповідно до чинних модельних програм МОН України
-            </p>
+        {/* МОДАЛЬНЕ ВІКНО ОПЛАТИ ТА ВІДПРАВКИ ЗАЯВКИ */}
+        {isModalOpen && selectedPlan && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#0D1117]/60 backdrop-blur-sm animate-in fade-in">
+            <div className="relative w-full max-w-lg bg-white border border-[#E2E8F4] rounded-3xl p-6 sm:p-8 shadow-2xl space-y-6">
+              <button
+                type="button"
+                onClick={() => setIsModalOpen(false)}
+                className="absolute top-5 right-5 p-2 rounded-xl text-[#5E687E] hover:text-[#0D1117] hover:bg-[#F7F9FD] transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+
+              <div>
+                <span className="text-[10px] font-mono-math font-bold text-[#1E56FF] uppercase tracking-wider bg-[#EFF4FF] px-2.5 py-1 rounded-md">
+                  Оформлення тарифу
+                </span>
+                <h3 className="font-display font-black text-xl sm:text-2xl text-[#0D1117] mt-2">
+                  {selectedPlan.name} ({selectedPlan.price})
+                </h3>
+              </div>
+
+              {isSuccess ? (
+                <div className="py-6 text-center space-y-4">
+                  <div className="w-14 h-14 rounded-full bg-emerald-50 text-[#00BA7C] flex items-center justify-center mx-auto border border-emerald-200">
+                    <CheckCircle2 className="w-8 h-8" />
+                  </div>
+                  <div className="space-y-1">
+                    <h4 className="font-display font-bold text-lg text-[#0D1117]">
+                      Заявку успішно надіслано!
+                    </h4>
+                    <p className="text-xs text-[#5E687E] max-w-sm mx-auto leading-relaxed">
+                      Після перевірки зарахування оплати ми згенеруємо ваш особистий доступ і надішлемо логін та пароль на пошту <strong>{email}</strong>.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setIsModalOpen(false)}
+                    className="font-display font-bold text-xs px-6 py-3 rounded-xl bg-[#1E56FF] text-white hover:bg-[#0D33B3] transition-all cursor-pointer"
+                  >
+                    Зрозуміло
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-5">
+                  {/* Блок із реквізитами для переказу */}
+                  <div className="p-4 rounded-2xl bg-[#F7F9FD] border border-[#E2E8F4] space-y-2">
+                    <div className="flex items-center gap-2 text-xs font-display font-bold text-[#0D1117]">
+                      <CreditCard className="w-4 h-4 text-[#1E56FF]" />
+                      Реквізити для оплати:
+                    </div>
+                    <div className="text-xs font-mono-math text-[#5E687E] space-y-1">
+                      <p>Картка / Монобанка: <strong className="text-[#0D1117]">4441 •••• •••• 1234</strong></p>
+                      <p>Отримувач: <strong className="text-[#0D1117]">Діана Дмитрюк</strong></p>
+                      <p>Сума до сплати: <strong className="text-[#1E56FF] font-bold">{selectedPlan.price}</strong></p>
+                    </div>
+                  </div>
+
+                  {errorMsg && (
+                    <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs flex items-start gap-2">
+                      <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                      <span>{errorMsg}</span>
+                    </div>
+                  )}
+
+                  {/* Форма сповіщення про оплату */}
+                  <form onSubmit={handleSendPaymentRequest} className="space-y-3.5">
+                    <div>
+                      <label className="block text-[10px] font-mono-math uppercase tracking-wider font-bold text-[#5E687E] mb-1">
+                        Ваше ім&apos;я та прізвище *
+                      </label>
+                      <input
+                        type="text"
+                        value={fullName}
+                        onChange={(e) => setFullName(e.target.value)}
+                        placeholder="Оксана Коваленко"
+                        className="w-full text-xs sm:text-sm px-3.5 py-2.5 bg-[#F7F9FD] border border-[#E2E8F4] rounded-xl outline-none focus:border-[#1E56FF] focus:bg-white transition"
+                        required
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[10px] font-mono-math uppercase tracking-wider font-bold text-[#5E687E] mb-1">
+                        Ваш Email (на нього відкриється доступ) *
+                      </label>
+                      <input
+                        type="email"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        placeholder="teacher@school.edu.ua"
+                        className="w-full text-xs sm:text-sm px-3.5 py-2.5 bg-[#F7F9FD] border border-[#E2E8F4] rounded-xl outline-none focus:border-[#1E56FF] focus:bg-white transition"
+                        required
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[10px] font-mono-math uppercase tracking-wider font-bold text-[#5E687E] mb-1">
+                        Телефон або Telegram (для швидкого зв&apos;язку)
+                      </label>
+                      <input
+                        type="text"
+                        value={contactInfo}
+                        onChange={(e) => setContactInfo(e.target.value)}
+                        placeholder="@username або +380..."
+                        className="w-full text-xs sm:text-sm px-3.5 py-2.5 bg-[#F7F9FD] border border-[#E2E8F4] rounded-xl outline-none focus:border-[#1E56FF] focus:bg-white transition"
+                      />
+                    </div>
+
+                    <button
+                      type="submit"
+                      disabled={isSubmitting}
+                      className="w-full py-3.5 px-4 rounded-xl font-display font-bold text-xs sm:text-sm bg-[#1E56FF] text-white hover:bg-[#0D33B3] transition-all disabled:opacity-50 shadow-xs flex items-center justify-center gap-2 cursor-pointer mt-4"
+                    >
+                      {isSubmitting ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          Відправка...
+                        </>
+                      ) : (
+                        <>
+                          <Send className="w-4 h-4" />
+                          Я оплатив(ла), підтвердити заявку
+                        </>
+                      )}
+                    </button>
+                  </form>
+                </div>
+              )}
+            </div>
           </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 pt-4 border-t border-[#F1F4FA]">
-            <div className="flex items-start gap-3.5">
-              <div className="w-10 h-10 rounded-xl bg-[#EFF4FF] text-[#1E56FF] flex items-center justify-center shrink-0">
-                <Gamepad2 className="w-5 h-5" />
-              </div>
-              <div>
-                <h4 className="font-display font-bold text-sm text-[#0D1117]">
-                  HTML5-ігри без обмежень
-                </h4>
-                <p className="text-xs text-[#5E687E] mt-1 leading-relaxed">
-                  Інтерактивні тренажери запускаються на весь екран прямо на уроці без сторонньої реклами.
-                </p>
-              </div>
-            </div>
-
-            <div className="flex items-start gap-3.5">
-              <div className="w-10 h-10 rounded-xl bg-[#EFF4FF] text-[#1E56FF] flex items-center justify-center shrink-0">
-                <Download className="w-5 h-5" />
-              </div>
-              <div>
-                <h4 className="font-display font-bold text-sm text-[#0D1117]">
-                  Редаговані файли
-                </h4>
-                <p className="text-xs text-[#5E687E] mt-1 leading-relaxed">
-                  Завантажуйте готові слайди PowerPoint (PPTX) та документи Word (DOCX) для власного редагування.
-                </p>
-              </div>
-            </div>
-
-            <div className="flex items-start gap-3.5">
-              <div className="w-10 h-10 rounded-xl bg-[#EFF4FF] text-[#1E56FF] flex items-center justify-center shrink-0">
-                <FileText className="w-5 h-5" />
-              </div>
-              <div>
-                <h4 className="font-display font-bold text-sm text-[#0D1117]">
-                  Контрольні з відповідями
-                </h4>
-                <p className="text-xs text-[#5E687E] mt-1 leading-relaxed">
-                  Готові варіанти з критеріями оцінювання, які заощаджують години на перевірку зошитів.
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
+        )}
       </div>
     </div>
   );
