@@ -5,7 +5,6 @@ export function Header() {
   return (
     <header className="sticky top-0 z-40 w-full border-b border-[#E2E8F4] bg-white/90 backdrop-blur-md">
       <div className="max-w-7xl mx-auto flex h-16 items-center justify-between px-4 sm:px-6 lg:px-8">
-        {/* Логотип */}
         <Link href="/" className="flex items-center gap-3 group">
           <div className="w-8 h-8 rounded-full bg-[#1E56FF] flex items-center justify-center text-white font-display font-black text-sm shadow-xs transition-transform group-hover:scale-105">
             V
@@ -20,7 +19,6 @@ export function Header() {
           </div>
         </Link>
 
-        {/* Права частина меню як на скриншоті */}
         <nav className="flex items-center gap-3 sm:gap-4">
           <Link
             href="/catalog"

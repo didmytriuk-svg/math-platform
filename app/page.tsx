@@ -5,12 +5,9 @@ import {
   Search, 
   ArrowRight, 
   Sparkles, 
-  Gamepad2, 
-  FileText, 
-  BookOpen, 
   ChevronRight,
-  ShieldCheck,
-  Check
+  Check,
+  ShieldCheck
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { MathParticles } from '@/components/ui/MathParticles';
@@ -44,28 +41,26 @@ export default async function HomePage() {
     recentMaterials = matRes.data || [];
     grades = gradeRes.data || [];
   } catch (e) {
-    console.warn('Database fetch fallback on home');
+    console.warn('Database fallback');
   }
 
-  const defaultGrades = [
-    { id: '5', number: 5, name: '5 клас' },
-    { id: '6', number: 6, name: '6 клас' },
-    { id: '7', number: 7, name: '7 клас' },
-    { id: '8', number: 8, name: '8 клас' },
-    { id: '9', number: 9, name: '9 клас' },
-    { id: '10', number: 10, name: '10 клас' },
-    { id: '11', number: 11, name: '11 клас' },
+  const gradeCardsData = [
+    { num: 5, subtitle: 'Арифметика та дроби' },
+    { num: 6, subtitle: 'Пропорції та раціональні числа' },
+    { num: 7, subtitle: 'Алгебра та Геометрія' },
+    { num: 8, subtitle: 'Квадратні рівняння, чотирикутники' },
+    { num: 9, subtitle: 'Функції, вектори, комбінаторика' },
+    { num: 10, subtitle: 'Похідна та стереометрія' },
+    { num: 11, subtitle: 'Інтеграли та підготовка до НМТ' },
   ];
 
-  const activeGrades = grades.length > 0 ? grades : defaultGrades;
-
-  const materialTypesList = [
-    { title: 'Презентації', slug: 'presentation', desc: 'Готові структуровані слайди до кожного уроку' },
-    { title: 'Інтерактивні ігри', slug: 'game', desc: 'HTML5-тренажери усного рахунку на весь екран' },
-    { title: 'Контрольні роботи', slug: 'control', desc: 'Варіанти завдань із критеріями та відповідями' },
-    { title: 'Самостійні роботи', slug: 'worksheet', desc: 'Картки для швидкої 15-хвилинної перевірки' },
-    { title: 'Конспекти уроків', slug: 'notes', desc: 'Методичні плани та формули з копіюванням у 1 клік' },
-    { title: 'Домашні завдання', slug: 'homework', desc: 'Диференційовані блоки вправ для учнів' },
+  const materialTypesData = [
+    { title: 'Презентації', slug: 'presentation' },
+    { title: 'Інтерактивні ігри', slug: 'game' },
+    { title: 'Самостійні роботи', slug: 'worksheet' },
+    { title: 'Контрольні роботи', slug: 'control' },
+    { title: 'Тести до уроку', slug: 'test' },
+    { title: 'Домашні завдання', slug: 'homework' },
   ];
 
   const pricingTiers = [
@@ -77,7 +72,7 @@ export default async function HomePage() {
       period: 'назавжди',
       desc: 'Повний перший блок тем будь-якого класу для тестування на уроці.',
       features: [
-        'Повний вступний блок уроків',
+        'Повний перший блок уроків',
         'Онлайн-перегляд усього каталогу',
         'Текстові плани та конспекти',
       ],
@@ -144,19 +139,17 @@ export default async function HomePage() {
   ];
 
   return (
-    <div className="space-y-16 sm:space-y-24 py-10 sm:py-16">
-      {/* 1. HERO СЕКЦІЯ (ТОЧНО ЯК НА СКРИНШОТІ) */}
-      <section className="relative max-w-5xl mx-auto px-4 sm:px-6 text-center space-y-8 min-h-[460px] flex flex-col justify-center items-center">
+    <div className="bg-volya-grid min-h-screen space-y-16 sm:space-y-24 py-8 sm:py-16 relative">
+      {/* 1. HERO СЕКЦІЯ (ТОЧНО ЗА СКРИНШОТОМ 1) */}
+      <section className="relative max-w-5xl mx-auto px-4 sm:px-6 text-center space-y-8 min-h-[440px] flex flex-col justify-center items-center">
         <MathParticles />
 
         <div className="relative z-10 space-y-8 w-full">
-          {/* Овальний бейдж */}
           <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-[#EFF4FF] border border-[#D5E2FF] text-[#1E56FF] text-xs font-mono-math font-bold shadow-2xs">
             <Sparkles className="w-3.5 h-3.5" />
             <span>ВІДКРИТА БАЗА НАВЧАЛЬНИХ МАТЕРІАЛІВ</span>
           </div>
 
-          {/* Заголовок */}
           <div className="space-y-4 max-w-4xl mx-auto">
             <h1 className="font-display font-black text-4xl sm:text-6xl text-[#0D1117] tracking-tight leading-[1.1]">
               Матеріали, з якими урок створюється <span className="text-[#1E56FF]">швидше</span>
@@ -166,7 +159,6 @@ export default async function HomePage() {
             </p>
           </div>
 
-          {/* Великий пошуковий рядок */}
           <div className="max-w-2xl mx-auto w-full">
             <form
               action="/catalog"
@@ -193,102 +185,96 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {/* 2. ШВИДКИЙ ВИБІР КЛАСУ */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
+      {/* 2. ОБЕРІТЬ КЛАС (ТОЧНО ЗА СКРИНШОТОМ 2) */}
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6 relative z-10">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="font-display font-black text-xl sm:text-2xl text-[#0D1117]">
+            <h2 className="font-display font-black text-2xl sm:text-3xl text-[#0D1117]">
               Оберіть клас
             </h2>
-            <p className="text-xs text-[#5E687E] mt-0.5">
-              Швидкий перехід до структурованої програми паралелі
+            <p className="text-xs sm:text-sm text-[#5E687E] mt-0.5">
+              Швидкий перехід до програми потрібної паралелі
             </p>
           </div>
           <Link
             href="/catalog"
-            className="font-display font-bold text-xs text-[#1E56FF] hover:underline inline-flex items-center gap-1"
+            className="font-display font-bold text-xs sm:text-sm text-[#1E56FF] hover:underline inline-flex items-center gap-1"
           >
-            Усі класи
-            <ChevronRight className="w-3.5 h-3.5" />
+            Усі класи →
           </Link>
         </div>
 
         <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3 sm:gap-4">
-          {activeGrades.map((grade) => (
-            <Link
-              key={grade.id}
-              href={`/catalog?grade=${grade.id}`}
-              className="group bg-white border border-[#E2E8F4] hover:border-[#1E56FF] rounded-2xl p-4 sm:p-5 text-center transition-all duration-200 shadow-2xs hover:shadow-sm flex flex-col items-center justify-center gap-1"
-            >
-              <span className="font-display font-black text-2xl sm:text-3xl text-[#0D1117] group-hover:text-[#1E56FF] transition-colors">
-                {grade.number || String(grade.name).replace(/\D/g, '')}
-              </span>
-              <span className="text-[11px] font-mono-math text-[#5E687E] uppercase tracking-wider font-semibold">
-                клас
-              </span>
-            </Link>
-          ))}
-        </div>
-      </section>
+          {gradeCardsData.map((item) => {
+            const matchedDbGrade = grades.find((g) => g.number === item.num);
+            const gradeUrlParam = matchedDbGrade?.id || item.num;
 
-      {/* 3. ТИПИ МАТЕРІАЛІВ */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
-        <div>
-          <h2 className="font-display font-black text-xl sm:text-2xl text-[#0D1117]">
-            Формати навчальних розробок
-          </h2>
-          <p className="text-xs text-[#5E687E] mt-0.5">
-            Усе необхідне для проведення уроку, контролю знань та інтерактивної практики
-          </p>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {materialTypesList.map((type, idx) => (
-            <Link
-              key={idx}
-              href={`/catalog?type=${type.slug}`}
-              className="group bg-white border border-[#E2E8F4] hover:border-[#1E56FF] rounded-2xl p-5 transition-all duration-200 shadow-2xs hover:shadow-sm flex items-start gap-4"
-            >
-              <div className="w-10 h-10 rounded-xl bg-[#EFF4FF] text-[#1E56FF] flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
-                {type.slug === 'game' ? (
-                  <Gamepad2 className="w-5 h-5" />
-                ) : type.slug === 'notes' ? (
-                  <BookOpen className="w-5 h-5" />
-                ) : (
-                  <FileText className="w-5 h-5" />
-                )}
-              </div>
-              <div className="space-y-1">
-                <h3 className="font-display font-bold text-sm text-[#0D1117] group-hover:text-[#1E56FF] transition-colors flex items-center gap-1.5">
-                  {type.title}
-                  <ChevronRight className="w-3.5 h-3.5 opacity-0 group-hover:opacity-100 transition-opacity" />
-                </h3>
-                <p className="text-xs text-[#5E687E] leading-relaxed">
-                  {type.desc}
+            return (
+              <Link
+                key={item.num}
+                href={`/catalog?grade=${gradeUrlParam}`}
+                className="group bg-white border border-[#E2E8F4] hover:border-[#1E56FF] rounded-2xl p-5 text-left transition-all duration-200 shadow-2xs hover:shadow-sm flex flex-col justify-between min-h-[170px]"
+              >
+                <div>
+                  <span className="font-display font-black text-3xl sm:text-4xl text-[#0D1117] block leading-none">
+                    {item.num}
+                  </span>
+                  <span className="text-xs font-display font-bold text-[#0D1117] block mt-1">
+                    клас
+                  </span>
+                </div>
+                <p className="text-[11px] text-[#5E687E] leading-snug mt-3">
+                  {item.subtitle}
                 </p>
-              </div>
-            </Link>
-          ))}
+              </Link>
+            );
+          })}
         </div>
       </section>
 
-      {/* 4. ОСТАННІ ДОДАНІ МАТЕРІАЛИ */}
+      {/* 3. ТИПИ НАВЧАЛЬНИХ МАТЕРІАЛІВ (ТОЧНО ЗА СКРИНШОТОМ 2 та 3) */}
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+        <div className="bg-white border border-[#E2E8F4] rounded-3xl p-6 sm:p-10 shadow-xs space-y-6">
+          <div>
+            <h2 className="font-display font-black text-xl sm:text-2xl text-[#0D1117]">
+              Типи навчальних матеріалів
+            </h2>
+            <p className="text-xs sm:text-sm text-[#5E687E] mt-0.5">
+              Обирайте формат відповідно до плану вашого заняття
+            </p>
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+            {materialTypesData.map((t, idx) => (
+              <Link
+                key={idx}
+                href={`/catalog?type=${t.slug}`}
+                className="bg-[#F7F9FD] hover:bg-[#EFF4FF] border border-[#E2E8F4] hover:border-[#1E56FF] rounded-2xl p-4 text-center font-display font-bold text-xs sm:text-sm text-[#0D1117] hover:text-[#1E56FF] transition-all flex items-center justify-center min-h-[72px]"
+              >
+                {t.title}
+              </Link>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* 4. НОВІ НАДХОДЖЕННЯ (ТОЧНО ЗА СКРИНШОТАМИ 3 та 4) */}
       {recentMaterials.length > 0 && (
-        <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
+        <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6 relative z-10">
           <div className="flex items-center justify-between">
             <div>
-              <h2 className="font-display font-black text-xl sm:text-2xl text-[#0D1117]">
+              <h2 className="font-display font-black text-2xl sm:text-3xl text-[#0D1117]">
                 Нові надходження
               </h2>
-              <p className="text-xs text-[#5E687E] mt-0.5">
-                Останні додані уроки та інтерактивні тренажери
+              <p className="text-xs sm:text-sm text-[#5E687E] mt-0.5">
+                Останні розробки, готові до використання на уроці
               </p>
             </div>
             <Link
               href="/catalog"
-              className="font-display font-bold text-xs text-[#1E56FF] hover:underline"
+              className="font-display font-bold text-xs sm:text-sm px-4 py-2 rounded-xl bg-[#0D1117] text-white hover:bg-[#1E56FF] transition-colors inline-flex items-center gap-1.5 shadow-xs"
             >
-              Переглянути всі →
+              Весь каталог →
             </Link>
           </div>
 
@@ -298,50 +284,49 @@ export default async function HomePage() {
                 key={m.id}
                 className="group bg-white border border-[#E2E8F4] hover:border-[#1E56FF] rounded-3xl p-6 transition-all duration-200 shadow-2xs hover:shadow-sm flex flex-col justify-between"
               >
-                <div className="space-y-3">
-                  <div className="flex items-center gap-2">
-                    {m.grades?.name && (
-                      <span className="px-2.5 py-0.5 rounded-md bg-[#EFF4FF] text-[#1E56FF] font-display font-bold text-[11px]">
-                        {m.grades.name}
+                <div className="space-y-4">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      {m.grades?.name && (
+                        <span className="px-3 py-1 rounded-lg bg-[#1E56FF] text-white font-display font-black text-xs">
+                          {m.grades.name}
+                        </span>
+                      )}
+                      <span className="text-xs font-mono-math text-[#5E687E]">
+                        Математика
                       </span>
-                    )}
+                    </div>
+
                     {m.material_types?.name && (
-                      <span className="text-[11px] font-mono-math text-[#5E687E]">
+                      <span className="px-2.5 py-1 rounded-lg bg-[#EFF4FF] border border-[#D5E2FF] text-[#1E56FF] font-mono-math font-bold text-xs">
                         {m.material_types.name}
-                      </span>
-                    )}
-                    {m.is_premium ? (
-                      <span className="ml-auto text-[10px] font-mono-math font-bold px-2 py-0.5 rounded-md bg-[#EFF4FF] text-[#1E56FF] border border-[#D5E2FF]">
-                        Pro
-                      </span>
-                    ) : (
-                      <span className="ml-auto text-[10px] font-mono-math font-semibold px-2 py-0.5 rounded-md bg-[#F0FDF4] text-[#00BA7C]">
-                        Free
                       </span>
                     )}
                   </div>
 
-                  <h3 className="font-display font-black text-base text-[#0D1117] group-hover:text-[#1E56FF] transition-colors line-clamp-2">
-                    {m.title}
-                  </h3>
-
-                  {m.description && (
-                    <p className="text-xs text-[#5E687E] line-clamp-2 leading-relaxed">
-                      {m.description}
-                    </p>
-                  )}
+                  <div>
+                    <h3 className="font-display font-black text-base sm:text-lg text-[#0D1117] group-hover:text-[#1E56FF] transition-colors leading-snug line-clamp-2">
+                      {m.title}
+                    </h3>
+                    {m.description && (
+                      <p className="text-xs text-[#5E687E] mt-2 line-clamp-2 leading-relaxed">
+                        {m.description}
+                      </p>
+                    )}
+                  </div>
                 </div>
 
-                <div className="pt-5 mt-5 border-t border-[#F1F4FA] flex items-center justify-between">
-                  <span className="text-[11px] font-mono-math text-[#94A3B8]">
-                    {m.is_interactive ? 'Інтерактивна гра' : 'Файл розробки'}
+                <div className="pt-6 mt-6 border-t border-[#F1F4FA] flex items-center justify-between">
+                  <span className="flex items-center gap-1.5 text-xs font-mono-math text-[#00BA7C] font-semibold">
+                    <span className="w-2 h-2 rounded-full bg-[#00BA7C]" />
+                    Відкритий доступ
                   </span>
+
                   <Link
                     href={`/material/${m.id}`}
-                    className="font-display font-bold text-xs px-4 py-2 rounded-xl bg-[#0D1117] text-white group-hover:bg-[#1E56FF] transition-colors inline-flex items-center gap-1.5"
+                    className="font-display font-bold text-xs text-[#0D1117] group-hover:text-[#1E56FF] transition-colors inline-flex items-center gap-1"
                   >
-                    Відкрити
-                    <ChevronRight className="w-3.5 h-3.5" />
+                    Відкрити →
                   </Link>
                 </div>
               </div>
@@ -351,7 +336,7 @@ export default async function HomePage() {
       )}
 
       {/* 5. ІНТЕГРОВАНИЙ БЛОК ТАРИФІВ (4 ПЛАНИ) */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4">
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10 pt-4">
         <div className="bg-white border border-[#E2E8F4] rounded-3xl p-6 sm:p-10 shadow-xs space-y-8">
           <div className="text-center max-w-2xl mx-auto space-y-2">
             <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#EFF4FF] border border-[#D5E2FF] text-[#1E56FF] text-xs font-mono-math font-bold">

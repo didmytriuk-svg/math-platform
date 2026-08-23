@@ -1,36 +1,19 @@
 @import "tailwindcss";
 
-@layer base {
-  :root {
-    --volya-blue: #1e56ff;
-    --volya-blue-hover: #0d33b3;
-    --volya-bg: #f7f9fd;
-    --volya-surface: #ffffff;
-    --volya-border: #e2e8f4;
-    --volya-border-dark: #0d1117;
-    --volya-text: #0d1117;
-    --volya-muted: #5e687e;
-  }
-
-  body {
-    background-color: var(--volya-bg);
-    color: var(--volya-text);
-    font-family: var(--font-sans), sans-serif;
-  }
-
-  .font-display {
-    font-family: var(--font-unbounded), sans-serif;
-  }
-
-  .font-mono-math {
-    font-family: var(--font-mono), monospace;
-  }
+:root {
+  --background: #f7f9fd;
+  --foreground: #0d1117;
 }
 
-/* Легкий математичний фон-сітка */
+body {
+  color: var(--foreground);
+  background: var(--background);
+  font-family: var(--font-inter), sans-serif;
+}
+
 .bg-volya-grid {
-  background-size: 36px 36px;
-  background-image: 
-    linear-gradient(to right, rgba(30, 86, 255, 0.04) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(30, 86, 255, 0.04) 1px, transparent 1px);
+  background-color: #f7f9fd;
+  background-image: radial-gradient(#d5e2ff 0.75px, transparent 0.75px), radial-gradient(#d5e2ff 0.75px, #f7f9fd 0.75px);
+  background-size: 30px 30px;
+  background-position: 0 0, 15px 15px;
 }
