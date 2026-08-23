@@ -485,7 +485,7 @@ export default async function HomePage() {
               className="font-display font-bold text-xs text-[#1E56FF] hover:underline inline-flex items-center gap-1"
             >
               Детальніше про умови ліцензій
-              <ArrowRight className="w-3.5 h-3.5" />
+              <ChevronRight className="w-3.5 h-3.5" />
             </Link>
           </div>
         </div>
