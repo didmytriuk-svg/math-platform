@@ -3,17 +3,17 @@ export const dynamic = 'force-dynamic';
 import Link from 'next/link';
 import { 
   Search, 
-  ArrowRight, 
   Sparkles, 
   ChevronRight,
   Check,
-  ShieldCheck
+  ShieldCheck,
+  Layers
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { MathParticles } from '@/components/ui/MathParticles';
 
 export default async function HomePage() {
-  let recentMaterials: any[] = [];
+  let dbMaterials: any[] = [];
   let grades: any[] = [];
 
   try {
@@ -38,11 +38,71 @@ export default async function HomePage() {
       supabase.from('grades').select('id, name, number').order('number', { ascending: true })
     ]);
 
-    recentMaterials = matRes.data || [];
+    dbMaterials = matRes.data || [];
     grades = gradeRes.data || [];
   } catch (e) {
-    console.warn('Database fallback');
+    console.warn('Database fallback on home page');
   }
+
+  // Резервні матеріали, якщо база щойно створена або ще не заповнена
+  const fallbackMaterials = [
+    {
+      id: 'demo-1',
+      title: 'Інтерактивний тренажер: Додавання та віднімання дробів',
+      description: 'Веб-гра для швидкого відпрацювання усного рахунку та зведення до спільного знаменника.',
+      grades: { name: '5 клас' },
+      material_types: { name: 'Гра' },
+      subject: 'Математика 5 клас',
+      is_interactive: true,
+    },
+    {
+      id: 'demo-2',
+      title: 'Презентація: Лінійні рівняння з однією змінною',
+      description: 'Повний комплект слайдів для пояснення нової теми в 7 класі з візуальними схемами переносу доданків.',
+      grades: { name: '7 клас' },
+      material_types: { name: 'Презентація' },
+      subject: 'Алгебра',
+      is_interactive: false,
+    },
+    {
+      id: 'demo-3',
+      title: 'Самостійна робота: Властивості лінійної функції',
+      description: 'Роздатковий матеріал на 2 варіанти з критеріями оцінювання та відповідями для вчителя.',
+      grades: { name: '7 клас' },
+      material_types: { name: 'Самостійна робота' },
+      subject: 'Алгебра',
+      is_interactive: false,
+    },
+    {
+      id: 'demo-4',
+      title: 'Контрольна робота: Квадратні рівняння та теорема Вієта',
+      description: 'Підсумкова перевірка знань у 4 варіантах зі шкалою балів та детальними розвʼязками.',
+      grades: { name: '8 клас' },
+      material_types: { name: 'Контрольна робота' },
+      subject: 'Алгебра',
+      is_interactive: false,
+    },
+    {
+      id: 'demo-5',
+      title: 'Гра-квест: Тригонометричні формули та коло',
+      description: 'Інтерактивна вікторина для закріплення радіанної міри кутів та значень sin, cos, tg.',
+      grades: { name: '10 клас' },
+      material_types: { name: 'Гра' },
+      subject: 'Алгебра і початки аналізу',
+      is_interactive: true,
+    },
+    {
+      id: 'demo-6',
+      title: 'Підготовка до НМТ: Обчислення інтегралів та площ фігур',
+      description: 'Практикум із типовими завданнями тестування минулих років та покроковими коментарями.',
+      grades: { name: '11 клас' },
+      material_types: { name: 'Тести до уроку' },
+      subject: 'Математика НМТ',
+      is_interactive: false,
+    },
+  ];
+
+  const displayMaterials = dbMaterials.length > 0 ? dbMaterials : fallbackMaterials;
 
   const gradeCardsData = [
     { num: 5, subtitle: 'Арифметика та дроби' },
@@ -72,7 +132,7 @@ export default async function HomePage() {
       period: 'назавжди',
       desc: 'Повний перший блок тем будь-якого класу для тестування на уроці.',
       features: [
-        'Повний перший блок уроків',
+        'Повний вступний блок уроків',
         'Онлайн-перегляд усього каталогу',
         'Текстові плани та конспекти',
       ],
@@ -140,7 +200,7 @@ export default async function HomePage() {
 
   return (
     <div className="bg-volya-grid min-h-screen space-y-16 sm:space-y-24 py-8 sm:py-16 relative">
-      {/* 1. HERO СЕКЦІЯ (ТОЧНО ЗА СКРИНШОТОМ 1) */}
+      {/* 1. HERO СЕКЦІЯ (ТОЧНО ЗА СКРИНШОТОМ) */}
       <section className="relative max-w-5xl mx-auto px-4 sm:px-6 text-center space-y-8 min-h-[440px] flex flex-col justify-center items-center">
         <MathParticles />
 
@@ -185,7 +245,7 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {/* 2. ОБЕРІТЬ КЛАС (ТОЧНО ЗА СКРИНШОТОМ 2) */}
+      {/* 2. ОБЕРІТЬ КЛАС (ТОЧНО ЗА СКРИНШОТОМ) */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6 relative z-10">
         <div className="flex items-center justify-between">
           <div>
@@ -232,7 +292,7 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {/* 3. ТИПИ НАВЧАЛЬНИХ МАТЕРІАЛІВ (ТОЧНО ЗА СКРИНШОТОМ 2 та 3) */}
+      {/* 3. ТИПИ НАВЧАЛЬНИХ МАТЕРІАЛІВ (ТОЧНО ЗА СКРИНШОТОМ) */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
         <div className="bg-white border border-[#E2E8F4] rounded-3xl p-6 sm:p-10 shadow-xs space-y-6">
           <div>
@@ -258,82 +318,80 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {/* 4. НОВІ НАДХОДЖЕННЯ (ТОЧНО ЗА СКРИНШОТАМИ 3 та 4) */}
-      {recentMaterials.length > 0 && (
-        <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6 relative z-10">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="font-display font-black text-2xl sm:text-3xl text-[#0D1117]">
-                Нові надходження
-              </h2>
-              <p className="text-xs sm:text-sm text-[#5E687E] mt-0.5">
-                Останні розробки, готові до використання на уроці
-              </p>
-            </div>
-            <Link
-              href="/catalog"
-              className="font-display font-bold text-xs sm:text-sm px-4 py-2 rounded-xl bg-[#0D1117] text-white hover:bg-[#1E56FF] transition-colors inline-flex items-center gap-1.5 shadow-xs"
-            >
-              Весь каталог →
-            </Link>
+      {/* 4. НОВІ НАДХОДЖЕННЯ (ЗАВЖДИ ВІДОБРАЖАЮТЬСЯ) */}
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6 relative z-10">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="font-display font-black text-2xl sm:text-3xl text-[#0D1117]">
+              Нові надходження
+            </h2>
+            <p className="text-xs sm:text-sm text-[#5E687E] mt-0.5">
+              Останні розробки, готові до використання на уроці
+            </p>
           </div>
+          <Link
+            href="/catalog"
+            className="font-display font-bold text-xs sm:text-sm px-4 py-2 rounded-xl bg-[#0D1117] text-white hover:bg-[#1E56FF] transition-colors inline-flex items-center gap-1.5 shadow-xs"
+          >
+            Весь каталог →
+          </Link>
+        </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {recentMaterials.map((m) => (
-              <div
-                key={m.id}
-                className="group bg-white border border-[#E2E8F4] hover:border-[#1E56FF] rounded-3xl p-6 transition-all duration-200 shadow-2xs hover:shadow-sm flex flex-col justify-between"
-              >
-                <div className="space-y-4">
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <div className="flex items-center gap-2">
-                      {m.grades?.name && (
-                        <span className="px-3 py-1 rounded-lg bg-[#1E56FF] text-white font-display font-black text-xs">
-                          {m.grades.name}
-                        </span>
-                      )}
-                      <span className="text-xs font-mono-math text-[#5E687E]">
-                        Математика
-                      </span>
-                    </div>
-
-                    {m.material_types?.name && (
-                      <span className="px-2.5 py-1 rounded-lg bg-[#EFF4FF] border border-[#D5E2FF] text-[#1E56FF] font-mono-math font-bold text-xs">
-                        {m.material_types.name}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          {displayMaterials.map((m: any) => (
+            <div
+              key={m.id}
+              className="group bg-white border border-[#E2E8F4] hover:border-[#1E56FF] rounded-3xl p-6 transition-all duration-200 shadow-2xs hover:shadow-sm flex flex-col justify-between"
+            >
+              <div className="space-y-4">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    {m.grades?.name && (
+                      <span className="px-3 py-1 rounded-lg bg-[#1E56FF] text-white font-display font-black text-xs">
+                        {m.grades.name}
                       </span>
                     )}
+                    <span className="text-xs font-mono-math text-[#5E687E]">
+                      {m.subject || 'Математика'}
+                    </span>
                   </div>
 
-                  <div>
-                    <h3 className="font-display font-black text-base sm:text-lg text-[#0D1117] group-hover:text-[#1E56FF] transition-colors leading-snug line-clamp-2">
-                      {m.title}
-                    </h3>
-                    {m.description && (
-                      <p className="text-xs text-[#5E687E] mt-2 line-clamp-2 leading-relaxed">
-                        {m.description}
-                      </p>
-                    )}
-                  </div>
+                  {m.material_types?.name && (
+                    <span className="px-2.5 py-1 rounded-lg bg-[#EFF4FF] border border-[#D5E2FF] text-[#1E56FF] font-mono-math font-bold text-xs">
+                      {m.material_types.name}
+                    </span>
+                  )}
                 </div>
 
-                <div className="pt-6 mt-6 border-t border-[#F1F4FA] flex items-center justify-between">
-                  <span className="flex items-center gap-1.5 text-xs font-mono-math text-[#00BA7C] font-semibold">
-                    <span className="w-2 h-2 rounded-full bg-[#00BA7C]" />
-                    Відкритий доступ
-                  </span>
-
-                  <Link
-                    href={`/material/${m.id}`}
-                    className="font-display font-bold text-xs text-[#0D1117] group-hover:text-[#1E56FF] transition-colors inline-flex items-center gap-1"
-                  >
-                    Відкрити →
-                  </Link>
+                <div>
+                  <h3 className="font-display font-black text-base sm:text-lg text-[#0D1117] group-hover:text-[#1E56FF] transition-colors leading-snug line-clamp-2">
+                    {m.title}
+                  </h3>
+                  {m.description && (
+                    <p className="text-xs text-[#5E687E] mt-2 line-clamp-2 leading-relaxed">
+                      {m.description}
+                    </p>
+                  )}
                 </div>
               </div>
-            ))}
-          </div>
-        </section>
-      )}
+
+              <div className="pt-6 mt-6 border-t border-[#F1F4FA] flex items-center justify-between">
+                <span className="flex items-center gap-1.5 text-xs font-mono-math text-[#00BA7C] font-semibold">
+                  <span className="w-2 h-2 rounded-full bg-[#00BA7C]" />
+                  Відкритий доступ
+                </span>
+
+                <Link
+                  href={m.id.startsWith('demo-') ? '/catalog' : `/material/${m.id}`}
+                  className="font-display font-bold text-xs text-[#0D1117] group-hover:text-[#1E56FF] transition-colors inline-flex items-center gap-1"
+                >
+                  Відкрити →
+                </Link>
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
 
       {/* 5. ІНТЕГРОВАНИЙ БЛОК ТАРИФІВ (4 ПЛАНИ) */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10 pt-4">
