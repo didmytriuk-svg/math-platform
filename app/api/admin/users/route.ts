@@ -19,7 +19,6 @@ function getAdminClient() {
   });
 }
 
-// Отримання списку всіх викладачів та заявок
 export async function GET(request: Request) {
   try {
     const supabaseAdmin = getAdminClient();
@@ -70,7 +69,6 @@ export async function GET(request: Request) {
   }
 }
 
-// Створення або оновлення доступу для викладача
 export async function POST(request: Request) {
   try {
     const supabaseAdmin = getAdminClient();
@@ -93,13 +91,11 @@ export async function POST(request: Request) {
       );
     }
 
-    // Розраховуємо дату закінчення (за замовчуванням 12 місяців)
     const proUntil = new Date();
     proUntil.setMonth(proUntil.getMonth() + Number(proUntilMonths));
 
     let userId: string;
 
-    // 1. Перевіряємо, чи існує вже користувач із таким email
     const { data: existingUser } = await supabaseAdmin.auth.admin.listUsers();
     const foundUser = existingUser?.users?.find(
       (u) => u.email?.toLowerCase() === email.toLowerCase().trim()
@@ -107,13 +103,11 @@ export async function POST(request: Request) {
 
     if (foundUser) {
       userId = foundUser.id;
-      // Оновлюємо пароль існуючого користувача
       await supabaseAdmin.auth.admin.updateUserById(userId, {
         password: password,
         user_metadata: { full_name: fullName },
       });
     } else {
-      // Створюємо нового користувача
       const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
         email: email.trim(),
         password: password,
@@ -128,7 +122,6 @@ export async function POST(request: Request) {
       userId = newUser.user.id;
     }
 
-    // 2. Оновлюємо або створюємо запис у таблиці profiles
     const { error: profileError } = await supabaseAdmin.from('profiles').upsert({
       id: userId,
       email: email.trim(),
@@ -145,7 +138,6 @@ export async function POST(request: Request) {
       throw new Error(`Помилка збереження профілю: ${profileError.message}`);
     }
 
-    // 3. Якщо створення відбулося за заявкою — міняємо статус заявки на approved
     if (requestId) {
       await supabaseAdmin
         .from('access_requests')

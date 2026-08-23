@@ -12,7 +12,6 @@ import {
   Check, 
   KeyRound, 
   Clock, 
-  Search,
   ArrowRight
 } from 'lucide-react';
 import { AdminHeaderNav } from '@/components/admin/AdminHeaderNav';
@@ -31,7 +30,6 @@ export default function AdminUsersPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  // Стан форми створення доступу
   const [email, setEmail] = useState('');
   const [fullName, setFullName] = useState('');
   const [password, setPassword] = useState('');
@@ -43,7 +41,6 @@ export default function AdminUsersPage() {
   const [successInfo, setSuccessInfo] = useState<any | null>(null);
   const [copiedText, setCopiedText] = useState(false);
 
-  // Генерація випадкового зрозумілого пароля (наприклад: math2026-xyz)
   const generatePassword = () => {
     const chars = 'abcdefghjkmnpqrstuvwxyz23456789';
     let randomPart = '';
@@ -73,7 +70,6 @@ export default function AdminUsersPage() {
     generatePassword();
   }, []);
 
-  // Швидке заповнення форми з картки заявки
   const handleSelectRequest = (req: any) => {
     setActiveRequestId(req.id);
     setEmail(req.email);
@@ -118,7 +114,6 @@ export default function AdminUsersPage() {
     }
   };
 
-  // Текст для відправки викладачу
   const messageToCopy = successInfo
     ? `Вітаємо! Ваш доступ до платформи Volya Academy активовано.\n\n` +
       `🌐 Сайт: https://math-platform-kohl.vercel.app/login\n` +
@@ -146,7 +141,6 @@ export default function AdminUsersPage() {
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
         <AdminHeaderNav />
 
-        {/* Заголовок */}
         <div className="bg-white border border-[#E2E8F4] rounded-3xl p-6 sm:p-8 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <h1 className="font-display font-black text-2xl sm:text-3xl text-[#0D1117]">
@@ -170,7 +164,6 @@ export default function AdminUsersPage() {
         )}
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-          {/* ФОРМА ВИДАЧІ ДОСТУПУ (Ліва колонка) */}
           <div className="lg:col-span-5 bg-white border border-[#E2E8F4] rounded-3xl p-6 sm:p-8 shadow-xs space-y-6">
             <div className="flex items-center justify-between border-b border-[#F1F4FA] pb-4">
               <h2 className="font-display font-black text-lg text-[#0D1117] flex items-center gap-2">
@@ -316,9 +309,7 @@ export default function AdminUsersPage() {
             </form>
           </div>
 
-          {/* СПИСКИ: ЗАЯВКИ ТА ВИКЛАДАЧІ (Права колонка) */}
           <div className="lg:col-span-7 space-y-6">
-            {/* Вхідні заявки на оплату */}
             {data.requests.filter((r) => r.status === 'pending').length > 0 && (
               <div className="bg-amber-50/70 border border-amber-200 rounded-3xl p-6 shadow-xs space-y-4">
                 <div className="flex items-center justify-between">
@@ -369,7 +360,6 @@ export default function AdminUsersPage() {
               </div>
             )}
 
-            {/* Таблиця всіх зареєстрованих викладачів */}
             <div className="bg-white border border-[#E2E8F4] rounded-3xl p-6 sm:p-8 shadow-xs space-y-4">
               <h3 className="font-display font-black text-lg text-[#0D1117]">
                 Список активних викладачів
