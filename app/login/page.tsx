@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowRight, Loader2, AlertCircle, CheckCircle2, Lock, Mail } from 'lucide-react';
+import { ArrowRight, Loader2, AlertCircle, Lock, Mail, Sparkles } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 
 export default function LoginPage() {
@@ -21,6 +21,7 @@ export default function LoginPage() {
     setIsLoading(true);
 
     try {
+      // 1. Авторизація через Supabase Auth
       const { data, error } = await supabase.auth.signInWithPassword({
         email: email.trim(),
         password: password,
@@ -33,7 +34,24 @@ export default function LoginPage() {
         throw error;
       }
 
-      router.push('/catalog');
+      if (!data.user) {
+        throw new Error('Не вдалося отримати дані користувача');
+      }
+
+      // 2. Перевіряємо роль користувача у таблиці profiles
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', data.user.id)
+        .maybeSingle();
+
+      // 3. Розумний редирект: адмін -> /admin, викладач -> /catalog
+      if (profile?.role === 'admin') {
+        router.push('/admin');
+      } else {
+        router.push('/catalog');
+      }
+      
       router.refresh();
     } catch (err: any) {
       setErrorMsg(err.message || 'Помилка авторизації');
@@ -43,17 +61,17 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-[80vh] flex items-center justify-center py-12 px-4 sm:px-6">
+    <div className="min-h-[80vh] flex items-center justify-center py-12 px-4 sm:px-6 bg-volya-grid">
       <div className="max-w-md w-full bg-white border border-[#E2E8F4] rounded-3xl p-8 sm:p-10 shadow-sm space-y-6">
         <div className="text-center space-y-2">
           <div className="w-10 h-10 rounded-full bg-[#1E56FF] text-white flex items-center justify-center mx-auto font-display font-black text-sm shadow-xs">
             V
           </div>
           <h1 className="font-display font-black text-2xl text-[#0D1117]">
-            Вхід для викладача
+            Вчительська
           </h1>
           <p className="text-xs text-[#5E687E]">
-            Введіть отриманий логін та пароль для доступу до PRO-матеріалів
+            Єдиний вхід для викладачів та адміністратора платформи
           </p>
         </div>
 
@@ -75,7 +93,7 @@ export default function LoginPage() {
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="teacher@school.edu.ua"
+                placeholder="teacher@school.edu.ua або admin@..."
                 className="w-full text-xs sm:text-sm pl-10 pr-4 py-3 bg-[#F7F9FD] border border-[#E2E8F4] rounded-xl outline-none focus:border-[#1E56FF] focus:bg-white transition"
                 required
               />
@@ -110,15 +128,19 @@ export default function LoginPage() {
                 Вхід...
               </>
             ) : (
-              'Увійти в кабінет'
+              <>
+                <span>Увійти</span>
+                <ArrowRight className="w-4 h-4" />
+              </>
             )}
           </button>
         </form>
 
         <div className="pt-4 border-t border-[#F1F4FA] text-center space-y-2">
           <p className="text-xs text-[#5E687E]">
-            Ще не маєте пароля?{' '}
-            <Link href="/pricing" className="font-bold text-[#1E56FF] hover:underline">
+            Ще не маєте доступу?{' '}
+            <Link href="/pricing" className="font-bold text-[#1E56FF] hover:underline inline-flex items-center gap-1">
+              <Sparkles className="w-3 h-3" />
               Оберіть тариф
             </Link>
           </p>
