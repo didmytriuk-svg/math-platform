@@ -20,9 +20,54 @@ import {
   Gamepad2, 
   BookOpen, 
   Copy, 
-  RotateCcw 
+  RotateCcw,
+  Sparkles,
+  Lock
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
+
+function PaywallCard({ title }: { title: string }) {
+  return (
+    <div className="w-full bg-[#0D1117] border border-[#1E293B] rounded-3xl p-8 sm:p-12 text-center text-white shadow-xl relative overflow-hidden">
+      <div className="absolute top-0 right-0 w-96 h-96 bg-[#1E56FF]/10 rounded-full blur-3xl pointer-events-none" />
+
+      <div className="max-w-md mx-auto space-y-6 relative z-10">
+        <div className="w-14 h-14 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-400 flex items-center justify-center mx-auto shadow-inner">
+          <Lock className="w-7 h-7" />
+        </div>
+
+        <div className="space-y-2">
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs font-mono-math font-bold">
+            <Sparkles className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
+            Ексклюзивний PRO матеріал
+          </div>
+          <h3 className="font-display font-black text-2xl sm:text-3xl text-white tracking-tight">
+            Отримайте доступ до цієї розробки
+          </h3>
+          <p className="text-xs sm:text-sm text-[#94A3B8] leading-relaxed">
+            Повний інтерактивний запуск гри, готові відповіді та редаговані вихідні файли входять у підписку <strong className="text-white">PRO Pass</strong>.
+          </p>
+        </div>
+
+        <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
+          <Link
+            href="/pricing"
+            className="w-full sm:w-auto font-display font-bold text-xs sm:text-sm px-7 py-3.5 rounded-xl bg-[#1E56FF] text-white hover:bg-[#0D33B3] transition-all shadow-md inline-flex items-center justify-center gap-2"
+          >
+            <Sparkles className="w-4 h-4 fill-amber-300 text-amber-300" />
+            Оформити PRO від 149 грн/міс
+          </Link>
+          <Link
+            href="/catalog"
+            className="w-full sm:w-auto font-display font-bold text-xs sm:text-sm px-5 py-3.5 rounded-xl border border-white/15 text-white hover:bg-white/10 transition-all text-center"
+          >
+            Дивитися безкоштовні
+          </Link>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function InlineMaterialViewer({
   title,
@@ -32,6 +77,7 @@ function InlineMaterialViewer({
   typeSlug,
   typeName,
   content,
+  isPremium,
 }: {
   title: string;
   fileUrl?: string | null;
@@ -40,12 +86,18 @@ function InlineMaterialViewer({
   typeSlug?: string | null;
   typeName?: string | null;
   content?: string | null;
+  isPremium?: boolean | null;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [gameKey, setGameKey] = useState(0);
   const [htmlContent, setHtmlContent] = useState<string | null>(null);
   const [isLoadingHtml, setIsLoadingHtml] = useState(false);
+
+  // Якщо матеріал преміум — показуємо Paywall
+  if (isPremium) {
+    return <PaywallCard title={title} />;
+  }
 
   const targetUrl = externalUrl || fileUrl || '';
   const lowerUrl = targetUrl.toLowerCase();
@@ -69,7 +121,6 @@ function InlineMaterialViewer({
      typeSlug === 'control' ||
      typeSlug === 'notes');
 
-  // Завантажуємо вихідний HTML для запуску в iframe
   useEffect(() => {
     if (!isHtmlGame) return;
 
@@ -94,7 +145,6 @@ function InlineMaterialViewer({
     }
   }, [fileUrl, content, isHtmlGame, lowerUrl]);
 
-  // Слухаємо зміну повноекранного режиму (Esc або кнопка)
   useEffect(() => {
     const handleFullscreenChange = () => {
       setIsFullscreen(Boolean(document.fullscreenElement));
@@ -106,7 +156,6 @@ function InlineMaterialViewer({
     };
   }, []);
 
-  // Нативний повноекранний режим
   const toggleFullscreen = () => {
     if (!containerRef.current) return;
 
@@ -121,7 +170,6 @@ function InlineMaterialViewer({
     }
   };
 
-  // Відкриття гри в окремій новій вкладці без показу коду
   const openInNewTab = () => {
     if (externalUrl) {
       window.open(externalUrl, '_blank', 'noopener,noreferrer');
@@ -143,7 +191,6 @@ function InlineMaterialViewer({
     }
   };
 
-  // 1. Інтерактивний HTML5-плеєр для ігор
   if (isHtmlGame && (targetUrl || htmlContent)) {
     return (
       <div
@@ -154,7 +201,6 @@ function InlineMaterialViewer({
             : 'aspect-[4/3] sm:aspect-[16/10] w-full min-h-[520px] rounded-3xl'
         }`}
       >
-        {/* Панель інструментів гри */}
         <div className="absolute top-3.5 right-3.5 z-20 flex items-center gap-1.5 bg-[#0D1117]/90 backdrop-blur-md px-3 py-1.5 rounded-2xl border border-white/15 text-white text-xs shadow-xl">
           <button
             type="button"
@@ -221,7 +267,6 @@ function InlineMaterialViewer({
     );
   }
 
-  // 2. Плеєр для PDF
   if (isPdf && fileUrl) {
     return (
       <div
@@ -260,7 +305,6 @@ function InlineMaterialViewer({
     );
   }
 
-  // 3. Блок завантаження для PPTX / Word / ZIP
   return (
     <div className="w-full aspect-16/9 sm:aspect-21/9 bg-white border border-[#E2E8F4] rounded-3xl flex flex-col items-center justify-center p-8 text-center shadow-xs">
       <div className="w-14 h-14 rounded-2xl bg-[#EFF4FF] border border-[#D5E2FF] flex items-center justify-center text-[#1E56FF] mb-4">
@@ -293,18 +337,32 @@ function InlineActionButtons({
   title,
   isInteractive,
   typeName,
-  content,
+  isPremium,
 }: {
   fileUrl?: string | null;
   externalUrl?: string | null;
   title: string;
   isInteractive?: boolean | null;
   typeName?: string | null;
-  content?: string | null;
+  isPremium?: boolean | null;
 }) {
   const [copied, setCopied] = useState(false);
 
   const isGame = Boolean(isInteractive) || typeName?.toLowerCase().includes('гра') || fileUrl?.toLowerCase().includes('.html');
+
+  if (isPremium) {
+    return (
+      <div className="flex flex-wrap items-center gap-3">
+        <Link
+          href="/pricing"
+          className="font-display font-bold text-xs sm:text-sm px-6 py-3 rounded-xl bg-[#1E56FF] text-white hover:bg-[#0D33B3] transition-all shadow-xs inline-flex items-center gap-2"
+        >
+          <Sparkles className="w-4 h-4 fill-amber-300 text-amber-300" />
+          Розблокувати в PRO Pass
+        </Link>
+      </div>
+    );
+  }
 
   const handleOpenTab = async () => {
     if (externalUrl) {
@@ -416,6 +474,12 @@ function InlineRelatedCard({ item }: { item: any }) {
               {item.material_types.name}
             </span>
           )}
+          {item.is_premium && (
+            <span className="px-2 py-0.5 rounded-md bg-amber-50 border border-amber-200 text-amber-700 font-mono-math font-bold text-[10px] flex items-center gap-1">
+              <Sparkles className="w-2.5 h-2.5 fill-amber-500 text-amber-500" />
+              PRO
+            </span>
+          )}
         </div>
         <h4 className="font-display font-bold text-sm text-[#0D1117] group-hover:text-[#1E56FF] transition-colors line-clamp-2 mb-2">
           {item.title}
@@ -494,6 +558,7 @@ export default function MaterialDetailPage() {
               slug,
               description,
               preview_url,
+              is_premium,
               grades ( name ),
               material_types ( name )
             `)
@@ -613,10 +678,18 @@ export default function MaterialDetailPage() {
                   {typeName}
                 </span>
               )}
-              <span className="px-3 py-1 rounded-lg bg-[#F0FDF4] text-[#00BA7C] font-mono-math font-semibold text-xs flex items-center gap-1.5">
-                <CheckCircle2 className="w-3.5 h-3.5" />
-                Безкоштовно
-              </span>
+
+              {material.is_premium ? (
+                <span className="px-3 py-1 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 font-mono-math font-bold text-xs flex items-center gap-1.5">
+                  <Sparkles className="w-3.5 h-3.5 fill-amber-500 text-amber-500" />
+                  PRO Матеріал
+                </span>
+              ) : (
+                <span className="px-3 py-1 rounded-lg bg-[#F0FDF4] text-[#00BA7C] font-mono-math font-semibold text-xs flex items-center gap-1.5">
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  Безкоштовно
+                </span>
+              )}
             </div>
 
             {formattedDate && (
@@ -645,13 +718,13 @@ export default function MaterialDetailPage() {
               title={material.title}
               isInteractive={material.is_interactive}
               typeName={typeName}
-              content={material.content}
+              isPremium={material.is_premium}
             />
           </div>
         </div>
 
-        {/* Робоча область: Інтерактивна гра або PDF */}
-        {(material.file_url || material.external_url || material.content) && (
+        {/* Робоча область: Інтерактивна гра або Paywall */}
+        {(material.file_url || material.external_url || material.content || material.is_premium) && (
           <section className="space-y-3">
             <div className="flex items-center justify-between px-1">
               <h3 className="font-display font-bold text-sm text-[#0D1117] uppercase tracking-wider flex items-center gap-2">
@@ -668,6 +741,7 @@ export default function MaterialDetailPage() {
               typeSlug={typeSlug}
               typeName={typeName}
               content={material.content}
+              isPremium={material.is_premium}
             />
           </section>
         )}
