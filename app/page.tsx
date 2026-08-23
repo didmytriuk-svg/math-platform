@@ -10,9 +10,10 @@ import {
   BookOpen, 
   ChevronRight,
   ShieldCheck,
-  CheckCircle2
+  Check
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
+import { MathParticles } from '@/components/ui/MathParticles';
 
 export default async function HomePage() {
   let recentMaterials: any[] = [];
@@ -67,51 +68,132 @@ export default async function HomePage() {
     { title: 'Домашні завдання', slug: 'homework', desc: 'Диференційовані блоки вправ для учнів' },
   ];
 
+  const pricingTiers = [
+    {
+      id: 'free',
+      name: 'Безкоштовний',
+      badge: 'Пробний доступ',
+      price: '0 грн',
+      period: 'назавжди',
+      desc: 'Повний перший блок тем будь-якого класу для тестування на уроці.',
+      features: [
+        'Повний вступний блок уроків',
+        'Онлайн-перегляд усього каталогу',
+        'Текстові плани та конспекти',
+      ],
+      cta: 'Вільний доступ',
+      href: '/catalog',
+      isPrimary: false,
+      btnStyle: 'bg-[#F7F9FD] border border-[#E2E8F4] text-[#0D1117] hover:border-[#1E56FF] hover:text-[#1E56FF]',
+    },
+    {
+      id: 'single',
+      name: 'Pro — один клас',
+      badge: 'Для однієї паралелі',
+      price: '290 грн',
+      period: 'на 1 рік (~24 грн/міс)',
+      desc: 'Повний комплект матеріалів для викладача конкретного класу.',
+      features: [
+        'Усі теми обраного класу (5–11)',
+        'Усі HTML5-ігри обраної паралелі',
+        'Завантаження PPTX та DOCX',
+        'Контрольні з готовими відповідями',
+      ],
+      cta: 'Обрати клас',
+      href: '/pricing',
+      isPrimary: false,
+      btnStyle: 'bg-white border-2 border-[#1E56FF] text-[#1E56FF] hover:bg-[#1E56FF] hover:text-white',
+    },
+    {
+      id: 'all',
+      name: 'Pro — весь каталог',
+      badge: 'Вибір 90% викладачів',
+      price: '890 грн',
+      period: 'на 1 рік (~74 грн/міс)',
+      desc: 'Повний безліміт до всіх 5–11 класів, включно з усіма новими оновленнями.',
+      features: [
+        'Безлімітний доступ до всіх 5–11 класів',
+        'Усі інтерактивні HTML5-ігри на весь екран',
+        'Редаговані слайди PPTX та конспекти DOCX',
+        'Пакети контрольних робіт із ключами',
+        'Усі оновлення програми протягом року',
+      ],
+      cta: 'Оформити All-Access',
+      href: '/pricing',
+      isPrimary: true,
+      btnStyle: 'bg-[#1E56FF] text-white hover:bg-[#0D33B3] shadow-md hover:shadow-lg',
+    },
+    {
+      id: 'school',
+      name: 'School (B2B)',
+      badge: 'Для закладів освіти',
+      price: '3 900 грн',
+      period: 'на 1 рік за школу',
+      desc: 'Корпоративна ліцензія для всієї кафедри математики школи.',
+      features: [
+        'Доступ для всіх учителів закладу',
+        'Офіційний договір та рахунок для юросіб',
+        'Повний доступ до всіх 5–11 класів',
+        'Персональний супровід методиста',
+      ],
+      cta: 'Рахунок для школи',
+      href: '/pricing',
+      isPrimary: false,
+      btnStyle: 'bg-[#0D1117] text-white hover:bg-[#1E56FF]',
+    },
+  ];
+
   return (
     <div className="space-y-16 sm:space-y-24 py-10 sm:py-16">
-      {/* 1. ВЕЛИКА ВІДКРИТА HERO-СЕКЦІЯ */}
-      <section className="max-w-5xl mx-auto px-4 sm:px-6 text-center space-y-8">
-        <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-[#EFF4FF] border border-[#D5E2FF] text-[#1E56FF] text-xs font-mono-math font-bold shadow-2xs">
-          <Sparkles className="w-3.5 h-3.5" />
-          <span>Відкрита база навчальних матеріалів для викладачів</span>
-        </div>
+      {/* 1. HERO СЕКЦІЯ (ТОЧНО ЯК НА СКРИНШОТІ) */}
+      <section className="relative max-w-5xl mx-auto px-4 sm:px-6 text-center space-y-8 min-h-[460px] flex flex-col justify-center items-center">
+        <MathParticles />
 
-        <div className="space-y-4 max-w-4xl mx-auto">
-          <h1 className="font-display font-black text-4xl sm:text-6xl text-[#0D1117] tracking-tight leading-[1.1]">
-            Матеріали, з якими урок створюється <span className="text-[#1E56FF]">швидше</span>
-          </h1>
-          <p className="text-sm sm:text-base text-[#5E687E] max-w-2xl mx-auto leading-relaxed">
-            Готові презентації, інтерактивні ігри, самостійні та контрольні роботи з математики для 5–11 класів.
-          </p>
-        </div>
+        <div className="relative z-10 space-y-8 w-full">
+          {/* Овальний бейдж */}
+          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-[#EFF4FF] border border-[#D5E2FF] text-[#1E56FF] text-xs font-mono-math font-bold shadow-2xs">
+            <Sparkles className="w-3.5 h-3.5" />
+            <span>ВІДКРИТА БАЗА НАВЧАЛЬНИХ МАТЕРІАЛІВ</span>
+          </div>
 
-        {/* Великий чистий пошуковий рядок */}
-        <div className="max-w-2xl mx-auto">
-          <form
-            action="/catalog"
-            method="GET"
-            className="flex items-center gap-2 p-2 bg-white border border-[#E2E8F4] focus-within:border-[#1E56FF] rounded-2xl shadow-sm transition-all"
-          >
-            <div className="flex items-center gap-3 pl-3 grow text-left text-sm text-[#94A3B8]">
-              <Search className="w-5 h-5 text-[#94A3B8] shrink-0" />
-              <input
-                type="text"
-                name="q"
-                placeholder="Що ви шукаєте? (наприклад: лінійні рівняння, 7 клас...)"
-                className="w-full text-xs sm:text-sm text-[#0D1117] outline-none bg-transparent placeholder:text-[#94A3B8]"
-              />
-            </div>
-            <button
-              type="submit"
-              className="font-display font-bold text-xs sm:text-sm px-6 py-3 bg-[#1E56FF] hover:bg-[#0D33B3] text-white rounded-xl transition-all shadow-xs shrink-0 cursor-pointer"
+          {/* Заголовок */}
+          <div className="space-y-4 max-w-4xl mx-auto">
+            <h1 className="font-display font-black text-4xl sm:text-6xl text-[#0D1117] tracking-tight leading-[1.1]">
+              Матеріали, з якими урок створюється <span className="text-[#1E56FF]">швидше</span>
+            </h1>
+            <p className="text-sm sm:text-base text-[#5E687E] max-w-2xl mx-auto leading-relaxed">
+              Готові презентації, інтерактивні ігри, тести, самостійні та контрольні роботи з математики для 5–11 класів.
+            </p>
+          </div>
+
+          {/* Великий пошуковий рядок */}
+          <div className="max-w-2xl mx-auto w-full">
+            <form
+              action="/catalog"
+              method="GET"
+              className="flex items-center gap-2 p-2 bg-white border border-[#0D1117] rounded-2xl shadow-sm transition-all"
             >
-              Знайти
-            </button>
-          </form>
+              <div className="flex items-center gap-3 pl-3 grow text-left text-sm text-[#94A3B8]">
+                <Search className="w-5 h-5 text-[#94A3B8] shrink-0" />
+                <input
+                  type="text"
+                  name="q"
+                  placeholder="Що ви шукаєте? (наприклад: лінійні рівняння, 7 клас...)"
+                  className="w-full text-xs sm:text-sm text-[#0D1117] outline-none bg-transparent placeholder:text-[#94A3B8]"
+                />
+              </div>
+              <button
+                type="submit"
+                className="font-display font-bold text-xs sm:text-sm px-6 py-3 bg-[#1E56FF] hover:bg-[#0D33B3] text-white rounded-xl transition-all shadow-xs shrink-0 cursor-pointer"
+              >
+                Знайти
+              </button>
+            </form>
+          </div>
         </div>
       </section>
 
-      {/* 2. ВЕЛИКИЙ ВИБІР КЛАСУ (5–11 класи) */}
+      {/* 2. ШВИДКИЙ ВИБІР КЛАСУ */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
         <div className="flex items-center justify-between">
           <div>
@@ -268,28 +350,101 @@ export default async function HomePage() {
         </section>
       )}
 
-      {/* 5. ЛАКОНІЧНИЙ ПЕРЕХІД ДО ТАРИФІВ У КІНЦІ */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="bg-white border border-[#E2E8F4] rounded-3xl p-8 sm:p-10 shadow-xs flex flex-col md:flex-row items-center justify-between gap-6">
-          <div className="space-y-1 text-center md:text-left">
-            <span className="text-xs font-mono-math font-bold text-[#1E56FF] uppercase tracking-wider">
-              Підписка та ліцензії 2026/2027
-            </span>
-            <h3 className="font-display font-black text-xl sm:text-2xl text-[#0D1117]">
-              Отримайте повний доступ до всіх розробок
-            </h3>
-            <p className="text-xs sm:text-sm text-[#5E687E]">
-              Безкоштовний ознайомчий блок, Pro-доступ до окремих класів або ліцензія на всю школу.
+      {/* 5. ІНТЕГРОВАНИЙ БЛОК ТАРИФІВ (4 ПЛАНИ) */}
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4">
+        <div className="bg-white border border-[#E2E8F4] rounded-3xl p-6 sm:p-10 shadow-xs space-y-8">
+          <div className="text-center max-w-2xl mx-auto space-y-2">
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#EFF4FF] border border-[#D5E2FF] text-[#1E56FF] text-xs font-mono-math font-bold">
+              <Sparkles className="w-3.5 h-3.5" />
+              <span>Тарифна система</span>
+            </div>
+            <h2 className="font-display font-black text-2xl sm:text-3xl text-[#0D1117] tracking-tight">
+              Обирайте рівень доступу до матеріалів
+            </h2>
+            <p className="text-xs text-[#5E687E] leading-relaxed">
+              Без прихованих автосписань. Працюйте з безкоштовним розділом або отримайте повний річний доступ.
             </p>
           </div>
 
-          <Link
-            href="/pricing"
-            className="font-display font-bold text-xs sm:text-sm px-6 py-3.5 bg-[#1E56FF] hover:bg-[#0D33B3] text-white rounded-xl transition-all shadow-xs inline-flex items-center gap-2 shrink-0 cursor-pointer"
-          >
-            Переглянути тарифні плани
-            <ArrowRight className="w-4 h-4" />
-          </Link>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 items-stretch">
+            {pricingTiers.map((tier) => (
+              <div
+                key={tier.id}
+                className={`bg-[#FAFCFF] border rounded-3xl p-6 flex flex-col justify-between transition-all duration-200 relative ${
+                  tier.isPrimary
+                    ? 'border-[#1E56FF] bg-white shadow-lg ring-1 ring-[#1E56FF] lg:-translate-y-1'
+                    : 'border-[#E2E8F4] hover:border-[#1E56FF]/40'
+                }`}
+              >
+                {tier.isPrimary && (
+                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-[#1E56FF] text-white text-[10px] font-display font-black uppercase tracking-wider px-3 py-0.5 rounded-full shadow-xs whitespace-nowrap">
+                    {tier.badge}
+                  </div>
+                )}
+
+                <div className="space-y-4">
+                  <div>
+                    {!tier.isPrimary && (
+                      <span className="text-[10px] font-mono-math font-bold text-[#5E687E] uppercase tracking-wider bg-white border border-[#E2E8F4] px-2 py-0.5 rounded-md">
+                        {tier.badge}
+                      </span>
+                    )}
+                    <h3 className="font-display font-black text-base sm:text-lg text-[#0D1117] mt-2">
+                      {tier.name}
+                    </h3>
+                    <p className="text-[11px] text-[#5E687E] mt-1 leading-relaxed min-h-[34px]">
+                      {tier.desc}
+                    </p>
+                  </div>
+
+                  <div className="pt-1">
+                    <div className="flex items-baseline gap-1">
+                      <span className="font-display font-black text-2xl sm:text-3xl text-[#0D1117]">
+                        {tier.price}
+                      </span>
+                    </div>
+                    <span className="text-[10px] font-mono-math text-[#5E687E]">
+                      {tier.period}
+                    </span>
+                  </div>
+
+                  <div className="pt-3 border-t border-[#EDF2FA] space-y-2">
+                    <ul className="space-y-2">
+                      {tier.features.map((feat, idx) => (
+                        <li key={idx} className="flex items-start gap-2 text-xs text-[#0D1117]">
+                          <Check className="w-3.5 h-3.5 text-[#1E56FF] shrink-0 mt-0.5" />
+                          <span>{feat}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+
+                <div className="pt-6">
+                  <Link
+                    href={tier.href}
+                    className={`w-full py-2.5 px-3 rounded-xl font-display font-bold text-xs text-center block transition-all ${tier.btnStyle}`}
+                  >
+                    {tier.cta}
+                  </Link>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="pt-4 border-t border-[#F1F4FA] flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-[#5E687E]">
+            <div className="flex items-center gap-2">
+              <ShieldCheck className="w-4 h-4 text-[#00BA7C]" />
+              <span>Матеріали відповідають модельним навчальним програмам МОН України</span>
+            </div>
+            <Link
+              href="/pricing"
+              className="font-display font-bold text-xs text-[#1E56FF] hover:underline inline-flex items-center gap-1"
+            >
+              Детальніше про умови ліцензій
+              <ArrowRight className="w-3.5 h-3.5" />
+            </Link>
+          </div>
         </div>
       </section>
     </div>
