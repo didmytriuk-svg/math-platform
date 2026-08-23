@@ -3,7 +3,6 @@ import { Inter, Plus_Jakarta_Sans, JetBrains_Mono } from 'next/font/google';
 import './globals.css';
 import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
-import { FloatingPricingButton } from '@/components/ui/FloatingPricingButton';
 
 const inter = Inter({
   subsets: ['latin', 'cyrillic'],
@@ -43,7 +42,6 @@ export default function RootLayout({
         <Header />
         <main className="grow">{children}</main>
         <Footer />
-        <FloatingPricingButton />
       </body>
     </html>
   );
