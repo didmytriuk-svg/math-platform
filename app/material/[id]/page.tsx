@@ -280,13 +280,13 @@ function InlineMaterialViewer({
 }
 
 function InlineActionButtons({
-  fileUrl,
+  files,
   externalUrl,
   title,
   isInteractive,
   typeName,
 }: {
-  fileUrl?: string | null;
+  files: any[];
   externalUrl?: string | null;
   title: string;
   isInteractive?: boolean | null;
@@ -294,48 +294,10 @@ function InlineActionButtons({
 }) {
   const [copied, setCopied] = useState(false);
 
-  const isGame = Boolean(isInteractive) || typeName?.toLowerCase().includes('гра') || fileUrl?.toLowerCase().includes('.html');
-
-  const handleOpenTab = async () => {
-    if (externalUrl) {
-      window.open(externalUrl, '_blank', 'noopener,noreferrer');
-      return;
-    }
-
-    if (isGame && fileUrl) {
-      try {
-        const res = await fetch(fileUrl);
-        const html = await res.text();
-        const newTab = window.open('', '_blank');
-        if (newTab) {
-          newTab.document.open();
-          newTab.document.write(html);
-          newTab.document.close();
-          return;
-        }
-      } catch (e) {
-        // Fallback
-      }
-    }
-
-    if (fileUrl) {
-      window.open(fileUrl, '_blank');
-    }
-  };
+  const primaryFile = files[0]?.file_url || null;
+  const isGame = Boolean(isInteractive) || typeName?.toLowerCase().includes('гра') || primaryFile?.toLowerCase().includes('.html');
 
   const handleShare = async () => {
-    if (typeof window !== 'undefined' && navigator.share) {
-      try {
-        await navigator.share({
-          title,
-          url: window.location.href,
-        });
-        return;
-      } catch (e) {
-        // Fallback
-      }
-    }
-
     if (typeof window !== 'undefined' && navigator.clipboard) {
       await navigator.clipboard.writeText(window.location.href);
       setCopied(true);
@@ -345,27 +307,42 @@ function InlineActionButtons({
 
   return (
     <div className="flex flex-wrap items-center gap-3">
-      {(fileUrl || externalUrl) && (
-        <button
-          type="button"
-          onClick={handleOpenTab}
-          className="font-display font-bold text-xs sm:text-sm px-5 py-3 rounded-xl bg-[#1E56FF] text-white hover:bg-[#0D33B3] transition-all shadow-xs inline-flex items-center gap-2 cursor-pointer"
+      {externalUrl && (
+        <a
+          href={externalUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="font-display font-bold text-xs sm:text-sm px-5 py-3 rounded-xl bg-[#1E56FF] text-white hover:bg-[#0D33B3] transition-all shadow-xs inline-flex items-center gap-2"
         >
           <ExternalLink className="w-4 h-4" />
-          {isGame ? 'Відкрити гру у новій вкладці' : 'Відкрити матеріал'}
-        </button>
+          Відкрити онлайн-вправу
+        </a>
       )}
 
-      {fileUrl && !isGame && (
+      {files.map((file, idx) => (
         <a
-          href={fileUrl}
+          key={file.id || idx}
+          href={file.file_url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="font-display font-bold text-xs sm:text-sm px-5 py-3 rounded-xl bg-[#1E56FF] text-white hover:bg-[#0D33B3] transition-all shadow-xs inline-flex items-center gap-2"
+        >
+          <ExternalLink className="w-4 h-4" />
+          {files.length > 1 ? `Відкрити файл ${idx + 1}` : 'Відкрити матеріал'}
+        </a>
+      ))}
+
+      {files.map((file, idx) => (
+        <a
+          key={`dl-${file.id || idx}`}
+          href={file.file_url}
           download
           className="font-display font-bold text-xs sm:text-sm px-5 py-3 rounded-xl bg-[#0D1117] text-white hover:bg-[#1E56FF] transition-all shadow-xs inline-flex items-center gap-2"
         >
           <Download className="w-4 h-4" />
-          Завантажити файл
+          {files.length > 1 ? `Завантажити (${file.file_name || `файл ${idx + 1}`})` : 'Завантажити файл'}
         </a>
-      )}
+      ))}
 
       <button
         type="button"
@@ -431,6 +408,7 @@ export default function MaterialDetailPage() {
   const supabase = createClient();
 
   const [material, setMaterial] = useState<any>(null);
+  const [materialFiles, setMaterialFiles] = useState<any[]>([]);
   const [gradeName, setGradeName] = useState<string | null>(null);
   const [typeName, setTypeName] = useState<string | null>(null);
   const [typeSlug, setTypeSlug] = useState<string | null>(null);
@@ -448,20 +426,21 @@ export default function MaterialDetailPage() {
     async function loadData() {
       setIsLoading(true);
       try {
-        const { data: mat, error: matErr } = await supabase
-          .from('materials')
-          .select('*')
-          .eq('id', id)
-          .maybeSingle();
+        const [matRes, filesRes] = await Promise.all([
+          supabase.from('materials').select('*').eq('id', id).maybeSingle(),
+          supabase.from('material_files').select('*').eq('material_id', id)
+        ]);
 
-        if (matErr || !mat) {
+        if (matRes.error || !matRes.data) {
           setError('Матеріал не знайдено або видалено.');
           setIsLoading(false);
           return;
         }
 
-        setMaterial(mat);
+        setMaterial(matRes.data);
+        setMaterialFiles(filesRes.data || []);
 
+        const mat = matRes.data;
         const [gRes, tRes, sRes, topRes] = await Promise.all([
           mat.grade_id ? supabase.from('grades').select('name').eq('id', mat.grade_id).maybeSingle() : Promise.resolve({ data: null }),
           mat.material_type_id ? supabase.from('material_types').select('name, slug').eq('id', mat.material_type_id).maybeSingle() : Promise.resolve({ data: null }),
@@ -556,6 +535,8 @@ export default function MaterialDetailPage() {
       })
     : '';
 
+  const primaryFileUrl = materialFiles[0]?.file_url || material.file_url || null;
+
   return (
     <div className="min-h-screen bg-volya-grid py-8 sm:py-12">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
@@ -632,7 +613,7 @@ export default function MaterialDetailPage() {
 
           <div className="pt-6 border-t border-[#F1F4FA]">
             <InlineActionButtons
-              fileUrl={material.file_url}
+              files={materialFiles}
               externalUrl={material.external_url}
               title={material.title}
               isInteractive={material.is_interactive}
@@ -641,8 +622,8 @@ export default function MaterialDetailPage() {
           </div>
         </div>
 
-        {/* Робоча область: Гра / PDF */}
-        {(material.file_url || material.external_url || material.content) && (
+        {/* Робоча область: Гра / PDF / Список файлів */}
+        {(primaryFileUrl || material.external_url || material.content) && (
           <section className="space-y-3">
             <div className="flex items-center justify-between px-1">
               <h3 className="font-display font-bold text-sm text-[#0D1117] uppercase tracking-wider flex items-center gap-2">
@@ -653,7 +634,7 @@ export default function MaterialDetailPage() {
 
             <InlineMaterialViewer
               title={material.title}
-              fileUrl={material.file_url}
+              fileUrl={primaryFileUrl}
               externalUrl={material.external_url}
               isInteractive={material.is_interactive}
               typeSlug={typeSlug}
