@@ -36,7 +36,7 @@ export default function NewMaterialPage() {
   const [selectedType, setSelectedType] = useState('');
   const [externalUrl, setExternalUrl] = useState('');
   const [isInteractive, setIsInteractive] = useState(false);
-  const [isPremium, setIsPremium] = useState(false); // <--- Додано стан для преміум-статусу
+  const [isPremium, setIsPremium] = useState(false);
   const [file, setFile] = useState<File | null>(null);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -152,7 +152,7 @@ export default function NewMaterialPage() {
         file_url: uploadedFileUrl,
         external_url: externalUrl.trim() || null,
         is_interactive: isInteractive,
-        is_premium: isPremium, // <--- Передаємо преміум-статус у базу даних
+        is_premium: isPremium,
         is_published: true,
       });
 
@@ -162,7 +162,7 @@ export default function NewMaterialPage() {
 
       setSuccessMsg('Матеріал успішно додано!');
       setTimeout(() => {
-        router.push('/admin/materials');
+        router.push('/admin'); // Виправлено перенаправлення на існуючий роут адмін-панелі
       }, 1200);
     } catch (err: any) {
       setErrorMsg(err.message || 'Сталася помилка під час створення матеріалу.');
@@ -187,11 +187,11 @@ export default function NewMaterialPage() {
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
         <div className="flex items-center justify-between">
           <Link
-            href="/admin/materials"
+            href="/admin"
             className="inline-flex items-center gap-2 text-xs font-display font-bold text-[#5E687E] hover:text-[#1E56FF] transition-colors"
           >
             <ArrowLeft className="w-4 h-4" />
-            Назад до списку матеріалів
+            Назад до адмін-панелі
           </Link>
           <span className="text-xs font-mono-math font-semibold text-[#1E56FF] bg-[#EFF4FF] border border-[#D5E2FF] px-3 py-1 rounded-lg">
             Вчительська панель
