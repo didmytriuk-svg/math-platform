@@ -182,20 +182,34 @@ export default function EditMaterialPage() {
             .from('materials')
             .upload(filePath, file, { cacheControl: '3600', upsert: false });
 
-          if (uploadError) continue;
+          if (uploadError) {
+            console.error('Storage upload error:', uploadError);
+            throw new Error(`Помилка завантаження файлу ${file.name}: ${uploadError.message}`);
+          }
 
           const { data: publicUrlData } = supabase.storage.from('materials').getPublicUrl(filePath);
 
-          await supabase.from('material_files').insert({
+          const { error: insertFileErr } = await supabase.from('material_files').insert({
             material_id: id,
             file_url: publicUrlData.publicUrl,
             file_name: file.name,
             file_size: file.size,
           });
+
+          if (insertFileErr) {
+            console.error('DB insert file error:', insertFileErr);
+            throw new Error(`Помилка збереження файлу в базі: ${insertFileErr.message}`);
+          }
         }
       }
 
-      setSuccessMsg('Матеріал успішно оновлено!');
+      setSuccessMsg('Матеріал та файли успішно оновлено!');
+      setNewFiles([]);
+      
+      // Оновлюємо список файлів з бази
+      const { data: refreshedFiles } = await supabase.from('material_files').select('*').eq('material_id', id);
+      setExistingFiles(refreshedFiles || []);
+
       setTimeout(() => {
         router.push('/admin');
       }, 1200);
@@ -481,7 +495,7 @@ export default function EditMaterialPage() {
                   onChange={(e) => setIsPremium(e.target.checked)}
                   className="w-4 h-4 rounded border-[#E2E8F4] text-amber-600 cursor-pointer"
                 />
-                <label htmlFor="premium-check" className="text-xs font-semibold text-[#0D1117] cursor-pointer">
+                <label htmlFor="premium-check" className="text-xs font-semibold text-[#0D1117] /07 cursor-pointer">
                   Зробити матеріал преміальним (доступ за підпискою)
                 </label>
               </div>
