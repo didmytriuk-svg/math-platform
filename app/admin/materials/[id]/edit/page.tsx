@@ -1,377 +1,97 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
-import { useParams } from 'next/navigation';
-import { 
-  ChevronRight, 
-  Calendar, 
-  Layers, 
-  CheckCircle2, 
-  ArrowLeft, 
-  Download, 
-  Share2, 
-  Check, 
-  ExternalLink,
-  Loader2,
-  Maximize2,
-  Minimize2,
-  FileText,
-  Gamepad2,
-  BookOpen,
-  Copy,
-  RotateCcw
-} from 'lucide-react';
+import { ArrowLeft, Upload, CheckCircle2, AlertCircle, Loader2, BookOpen, X, FileText, Trash2 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 
-function InlineMaterialViewer({
-  title,
-  fileUrl,
-  externalUrl,
-  isInteractive,
-  typeSlug,
-  typeName,
-}: {
-  title: string;
-  fileUrl?: string | null;
-  externalUrl?: string | null;
-  isInteractive?: boolean | null;
-  typeSlug?: string | null;
-  typeName?: string | null;
-}) {
-  const [isFullscreen, setIsFullscreen] = useState(false);
-  const [gameKey, setGameKey] = useState(0);
-
-  // Перевірка на HTML-гру
-  const isHtmlGame = 
-    fileUrl?.toLowerCase().endsWith('.html') || 
-    fileUrl?.includes('.html?') || 
-    typeSlug === 'game' || 
-    Boolean(isInteractive);
-
-  const isPdf =
-    fileUrl?.toLowerCase().endsWith('.pdf') ||
-    fileUrl?.includes('.pdf?') ||
-    typeSlug === 'worksheet' ||
-    typeSlug === 'control' ||
-    typeSlug === 'notes';
-
-  const gameSrc = fileUrl?.toLowerCase().endsWith('.html') || fileUrl?.includes('.html?') 
-    ? fileUrl 
-    : (externalUrl || fileUrl || '');
-
-  // 1. Плеєр для HTML5-ігор та інтерактивних вправ
-  if (isHtmlGame && gameSrc) {
-    return (
-      <div
-        className={`relative bg-slate-900 border border-[#E2E8F4] rounded-3xl overflow-hidden transition-all duration-300 ${
-          isFullscreen
-            ? 'fixed inset-0 z-50 rounded-none border-none'
-            : 'aspect-[4/3] sm:aspect-[16/10] w-full shadow-md'
-        }`}
-      >
-        {/* Панель керування грою */}
-        <div className="absolute top-3 right-3 z-10 flex items-center gap-2 bg-[#0D1117]/85 backdrop-blur-md px-3 py-1.5 rounded-2xl border border-white/10 text-white text-xs shadow-lg">
-          <button
-            type="button"
-            onClick={() => setGameKey((prev) => prev + 1)}
-            className="p-1.5 hover:bg-white/20 rounded-xl transition-colors cursor-pointer flex items-center gap-1.5"
-            title="Перезапустити гру"
-          >
-            <RotateCcw className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline text-[11px] font-semibold">Перезапуск</span>
-          </button>
-
-          <div className="w-[1px] h-3.5 bg-white/20" />
-
-          <button
-            type="button"
-            onClick={() => setIsFullscreen(!isFullscreen)}
-            className="p-1.5 hover:bg-white/20 rounded-xl transition-colors cursor-pointer"
-            title={isFullscreen ? 'Згорнути' : 'На весь екран'}
-          >
-            {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4 text-[#1E56FF]" />}
-          </button>
-
-          {gameSrc && (
-            <a
-              href={gameSrc}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="p-1.5 hover:bg-white/20 rounded-xl transition-colors"
-              title="Відкрити в окремому вікні"
-            >
-              <ExternalLink className="w-4 h-4" />
-            </a>
-          )}
-        </div>
-
-        <iframe
-          key={gameKey}
-          src={gameSrc}
-          title={title}
-          className="w-full h-full border-0 bg-white"
-          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
-          sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals"
-          allowFullScreen
-        />
-      </div>
-    );
-  }
-
-  // 2. Плеєр для PDF
-  if (isPdf && fileUrl) {
-    return (
-      <div
-        className={`relative bg-[#0D1117] border border-[#E2E8F4] rounded-3xl overflow-hidden transition-all duration-300 ${
-          isFullscreen
-            ? 'fixed inset-0 z-50 rounded-none'
-            : 'h-[600px] sm:h-[750px] w-full shadow-xs'
-        }`}
-      >
-        <div className="absolute top-3 right-3 z-10 flex items-center gap-2 bg-[#0D1117]/80 backdrop-blur-xs p-1.5 rounded-xl border border-white/10 text-white text-xs">
-          <button
-            type="button"
-            onClick={() => setIsFullscreen(!isFullscreen)}
-            className="p-1.5 hover:bg-white/20 rounded-lg transition-colors cursor-pointer"
-            title={isFullscreen ? 'Згорнути' : 'На весь екран'}
-          >
-            {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
-          </button>
-          <a
-            href={fileUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="p-1.5 hover:bg-white/20 rounded-lg transition-colors"
-            title="Відкрити оригінал"
-          >
-            <ExternalLink className="w-4 h-4" />
-          </a>
-        </div>
-
-        <iframe
-          src={`${fileUrl}#toolbar=1&navpanes=0`}
-          title={title}
-          className="w-full h-full border-0 bg-white"
-        />
-      </div>
-    );
-  }
-
-  // 3. Заглушка для файлів, які завантажуються (PPTX, DOCX, ZIP)
-  return (
-    <div className="w-full aspect-16/9 sm:aspect-21/9 bg-white border border-[#E2E8F4] rounded-3xl flex flex-col items-center justify-center p-8 text-center shadow-xs">
-      <div className="w-14 h-14 rounded-2xl bg-[#EFF4FF] border border-[#D5E2FF] flex items-center justify-center text-[#1E56FF] mb-4">
-        {typeSlug === 'game' ? <Gamepad2 className="w-7 h-7" /> : <FileText className="w-7 h-7" />}
-      </div>
-
-      <h4 className="font-display font-bold text-base sm:text-lg text-[#0D1117] mb-1">
-        {typeName || 'Навчальний файл'}
-      </h4>
-      <p className="text-xs sm:text-sm text-[#5E687E] max-w-md mb-6">
-        Цей формат оптимізовано для завантаження на ваш пристрій.
-      </p>
-
-      {fileUrl && (
-        <a
-          href={fileUrl}
-          download
-          className="font-display font-bold text-xs sm:text-sm px-6 py-3 rounded-xl bg-[#1E56FF] text-white hover:bg-[#0D33B3] transition-all shadow-xs"
-        >
-          Завантажити файл на комп&apos;ютер
-        </a>
-      )}
-    </div>
-  );
-}
-
-function InlineActionButtons({
-  fileUrl,
-  externalUrl,
-  title,
-}: {
-  fileUrl?: string | null;
-  externalUrl?: string | null;
-  title: string;
-}) {
-  const [copied, setCopied] = useState(false);
-
-  const handleShare = async () => {
-    if (typeof window !== 'undefined' && navigator.share) {
-      try {
-        await navigator.share({
-          title,
-          url: window.location.href,
-        });
-        return;
-      } catch (e) {
-        // Fallback
-      }
-    }
-
-    if (typeof window !== 'undefined' && navigator.clipboard) {
-      await navigator.clipboard.writeText(window.location.href);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    }
-  };
-
-  return (
-    <div className="flex flex-wrap items-center gap-3">
-      {fileUrl && (
-        <a
-          href={fileUrl}
-          download
-          target="_blank"
-          rel="noopener noreferrer"
-          className="font-display font-bold text-xs sm:text-sm px-5 py-3 rounded-xl bg-[#1E56FF] text-white hover:bg-[#0D33B3] transition-all shadow-xs inline-flex items-center gap-2 cursor-pointer"
-        >
-          <Download className="w-4 h-4" />
-          Завантажити файл
-        </a>
-      )}
-
-      {externalUrl && (
-        <a
-          href={externalUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="font-display font-bold text-xs sm:text-sm px-5 py-3 rounded-xl bg-[#0D1117] text-white hover:bg-[#1E56FF] transition-all shadow-xs inline-flex items-center gap-2"
-        >
-          <ExternalLink className="w-4 h-4" />
-          Відкрити ресурс
-        </a>
-      )}
-
-      <button
-        type="button"
-        onClick={handleShare}
-        className="font-display font-bold text-xs sm:text-sm px-4 py-3 rounded-xl bg-white border border-[#E2E8F4] text-[#0D1117] hover:border-[#1E56FF] hover:text-[#1E56FF] transition-all inline-flex items-center gap-2 cursor-pointer shadow-2xs"
-      >
-        {copied ? (
-          <>
-            <Check className="w-4 h-4 text-[#00BA7C]" />
-            Посилання скопійовано!
-          </>
-        ) : (
-          <>
-            <Share2 className="w-4 h-4 text-[#5E687E]" />
-            Поділитися
-          </>
-        )}
-      </button>
-    </div>
-  );
-}
-
-function InlineRelatedCard({ item }: { item: any }) {
-  return (
-    <Link
-      href={`/material/${item.id}`}
-      className="group bg-white border border-[#E2E8F4] hover:border-[#1E56FF] rounded-2xl p-5 transition-all shadow-2xs hover:shadow-sm flex flex-col justify-between"
-    >
-      <div>
-        <div className="flex items-center gap-2 mb-3">
-          {item.grades?.name && (
-            <span className="px-2.5 py-0.5 rounded-md bg-[#EFF4FF] text-[#1E56FF] font-display font-bold text-[11px]">
-              {item.grades.name}
-            </span>
-          )}
-          {item.material_types?.name && (
-            <span className="text-[11px] font-mono-math text-[#5E687E]">
-              {item.material_types.name}
-            </span>
-          )}
-        </div>
-        <h4 className="font-display font-bold text-sm text-[#0D1117] group-hover:text-[#1E56FF] transition-colors line-clamp-2 mb-2">
-          {item.title}
-        </h4>
-        {item.description && (
-          <p className="text-xs text-[#5E687E] line-clamp-2 mb-4 leading-relaxed">
-            {item.description}
-          </p>
-        )}
-      </div>
-
-      <div className="pt-3 border-t border-[#F1F4FA] flex items-center justify-between text-xs font-display font-bold text-[#1E56FF]">
-        <span>Відкрити матеріал</span>
-        <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-      </div>
-    </Link>
-  );
-}
-
-export default function MaterialDetailPage() {
+export default function EditMaterialPage() {
+  const router = useRouter();
   const params = useParams();
   const id = params?.id as string;
   const supabase = createClient();
 
-  const [material, setMaterial] = useState<any>(null);
-  const [gradeName, setGradeName] = useState<string | null>(null);
-  const [typeName, setTypeName] = useState<string | null>(null);
-  const [typeSlug, setTypeSlug] = useState<string | null>(null);
-  const [sectionName, setSectionName] = useState<string | null>(null);
-  const [topicName, setTopicName] = useState<string | null>(null);
-  const [relatedMaterials, setRelatedMaterials] = useState<any[]>([]);
+  const [taxonomy, setTaxonomy] = useState<{
+    subjects: any[];
+    grades: any[];
+    sections: any[];
+    topics: any[];
+    materialTypes: any[];
+  }>({
+    subjects: [],
+    grades: [],
+    sections: [],
+    topics: [],
+    materialTypes: [],
+  });
 
   const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [copiedContent, setCopiedContent] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [successMsg, setSuccessMsg] = useState<string | null>(null);
+
+  // Форма стану
+  const [title, setTitle] = useState('');
+  const [description, setDescription] = useState('');
+  const [content, setContent] = useState('');
+  const [selectedSubject, setSelectedSubject] = useState('');
+  const [selectedGrade, setSelectedGrade] = useState('');
+  const [selectedSection, setSelectedSection] = useState('');
+  const [selectedTopic, setSelectedTopic] = useState('');
+  const [selectedType, setSelectedType] = useState('');
+  const [externalUrl, setExternalUrl] = useState('');
+  const [isInteractive, setIsInteractive] = useState(false);
+  const [isPremium, setIsPremium] = useState(false);
+
+  // Файли
+  const [existingFiles, setExistingFiles] = useState<any[]>([]);
+  const [newFiles, setNewFiles] = useState<File[]>([]);
 
   useEffect(() => {
     if (!id) return;
 
     async function loadData() {
-      setIsLoading(true);
       try {
-        const { data: mat, error: matErr } = await supabase
-          .from('materials')
-          .select('*')
-          .eq('id', id)
-          .maybeSingle();
-
-        if (matErr || !mat) {
-          setError('Матеріал не знайдено або видалено.');
-          setIsLoading(false);
-          return;
-        }
-
-        setMaterial(mat);
-
-        const [gRes, tRes, sRes, topRes] = await Promise.all([
-          mat.grade_id ? supabase.from('grades').select('name').eq('id', mat.grade_id).maybeSingle() : Promise.resolve({ data: null }),
-          mat.material_type_id ? supabase.from('material_types').select('name, slug').eq('id', mat.material_type_id).maybeSingle() : Promise.resolve({ data: null }),
-          mat.section_id ? supabase.from('sections').select('name').eq('id', mat.section_id).maybeSingle() : Promise.resolve({ data: null }),
-          mat.topic_id ? supabase.from('topics').select('name').eq('id', mat.topic_id).maybeSingle() : Promise.resolve({ data: null }),
+        setIsLoading(true);
+        const [gRes, tRes, sRes, topRes, subRes, matRes, filesRes] = await Promise.all([
+          supabase.from('grades').select('id, name, number').order('number'),
+          supabase.from('material_types').select('id, name, slug'),
+          supabase.from('sections').select('id, name, grade_id'),
+          supabase.from('topics').select('id, name, section_id'),
+          supabase.from('subjects').select('id, name'),
+          supabase.from('materials').select('*').eq('id', id).single(),
+          supabase.from('material_files').select('*').eq('material_id', id),
         ]);
 
-        setGradeName(gRes.data?.name || null);
-        setTypeName(tRes.data?.name || null);
-        setTypeSlug(tRes.data?.slug || null);
-        setSectionName(sRes.data?.name || null);
-        setTopicName(topRes.data?.name || null);
-
-        if (mat.grade_id) {
-          const { data: related } = await supabase
-            .from('materials')
-            .select(`
-              id,
-              title,
-              slug,
-              description,
-              preview_url,
-              grades ( name ),
-              material_types ( name )
-            `)
-            .eq('is_published', true)
-            .neq('id', mat.id)
-            .eq('grade_id', mat.grade_id)
-            .limit(3);
-
-          setRelatedMaterials(related || []);
+        if (matRes.error || !matRes.data) {
+          throw new Error('Матеріал не знайдено.');
         }
+
+        const mat = matRes.data;
+        setTitle(mat.title || '');
+        setDescription(mat.description || '');
+        setContent(mat.content || '');
+        setSelectedSubject(mat.subject_id || '');
+        setSelectedGrade(mat.grade_id || '');
+        setSelectedSection(mat.section_id || '');
+        setSelectedTopic(mat.topic_id || '');
+        setSelectedType(mat.material_type_id || '');
+        setExternalUrl(mat.external_url || '');
+        setIsInteractive(Boolean(mat.is_interactive));
+        setIsPremium(Boolean(mat.is_premium));
+
+        setExistingFiles(filesRes.data || []);
+
+        setTaxonomy({
+          grades: gRes.data || [],
+          materialTypes: tRes.data || [],
+          sections: sRes.data || [],
+          topics: topRes.data || [],
+          subjects: subRes.data || [],
+        });
       } catch (err: any) {
-        setError(err.message || 'Сталася помилка при завантаженні');
+        setErrorMsg(err.message || 'Помилка завантаження даних матеріалу.');
       } finally {
         setIsLoading(false);
       }
@@ -380,223 +100,411 @@ export default function MaterialDetailPage() {
     loadData();
   }, [id, supabase]);
 
-  const copyLessonContent = () => {
-    if (!material?.content) return;
-    navigator.clipboard.writeText(material.content);
-    setCopiedContent(true);
-    setTimeout(() => setCopiedContent(false), 2000);
+  const availableSections = selectedGrade
+    ? taxonomy.sections.filter((s) => s.grade_id === selectedGrade)
+    : taxonomy.sections;
+
+  const availableTopics = selectedSection
+    ? taxonomy.topics.filter((t) => t.section_id === selectedSection)
+    : [];
+
+  const handleNewFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) {
+      const chosen = Array.from(e.target.files);
+      setNewFiles((prev) => [...prev, ...chosen]);
+    }
+  };
+
+  const removeNewFile = (index: number) => {
+    setNewFiles((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const deleteExistingFile = async (fileId: string) => {
+    try {
+      const { error } = await supabase.from('material_files').delete().eq('id', fileId);
+      if (error) throw error;
+      setExistingFiles((prev) => prev.filter((f) => f.id !== fileId));
+    } catch (err: any) {
+      alert(`Не вдалося видалити файл: ${err.message}`);
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setErrorMsg(null);
+    setSuccessMsg(null);
+
+    if (!title.trim()) {
+      setErrorMsg('Вкажіть назву матеріалу.');
+      return;
+    }
+    if (!selectedGrade) {
+      setErrorMsg('Оберіть клас.');
+      return;
+    }
+    if (!selectedType) {
+      setErrorMsg('Оберіть тип матеріалу.');
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    try {
+      // 1. Оновлюємо основний запис матеріалу
+      const { error: updateError } = await supabase
+        .from('materials')
+        .update({
+          title: title.trim(),
+          description: description.trim() || null,
+          content: content.trim() || null,
+          subject_id: selectedSubject || null,
+          grade_id: selectedGrade,
+          section_id: selectedSection || null,
+          topic_id: selectedTopic || null,
+          material_type_id: selectedType,
+          external_url: externalUrl.trim() || null,
+          is_interactive: isInteractive,
+          is_premium: isPremium,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', id);
+
+      if (updateError) throw updateError;
+
+      // 2. Завантажуємо нові додані файли
+      if (newFiles.length > 0) {
+        for (const file of newFiles) {
+          const fileExt = file.name.split('.').pop();
+          const fileNameClean = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
+          const filePath = `documents/${fileNameClean}`;
+
+          const { error: uploadError } = await supabase.storage
+            .from('materials')
+            .upload(filePath, file, { cacheControl: '3600', upsert: false });
+
+          if (uploadError) continue;
+
+          const { data: publicUrlData } = supabase.storage.from('materials').getPublicUrl(filePath);
+
+          await supabase.from('material_files').insert({
+            material_id: id,
+            file_url: publicUrlData.publicUrl,
+            file_name: file.name,
+            file_size: file.size,
+          });
+        }
+      }
+
+      setSuccessMsg('Матеріал успішно оновлено!');
+      setTimeout(() => {
+        router.push('/admin');
+      }, 1200);
+    } catch (err: any) {
+      setErrorMsg(err.message || 'Помилка при збереженні змін.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   if (isLoading) {
     return (
-      <div className="min-h-[70vh] flex items-center justify-center bg-volya-grid">
+      <div className="min-h-screen bg-volya-grid flex items-center justify-center">
         <div className="flex items-center gap-2 font-display font-bold text-sm text-[#0D1117]">
           <Loader2 className="w-5 h-5 animate-spin text-[#1E56FF]" />
-          Завантаження матеріалу...
+          Завантаження даних матеріалу...
         </div>
       </div>
     );
   }
-
-  if (error || !material) {
-    return (
-      <div className="min-h-[70vh] flex items-center justify-center bg-volya-grid px-4">
-        <div className="max-w-md w-full bg-white border border-[#E2E8F4] rounded-3xl p-8 sm:p-12 text-center shadow-xs">
-          <div className="w-14 h-14 bg-red-50 text-red-600 rounded-2xl flex items-center justify-center mx-auto mb-5 font-bold text-xl">
-            !
-          </div>
-          <h2 className="font-display font-black text-xl text-[#0D1117] mb-2">
-            Матеріал не знайдено
-          </h2>
-          <p className="text-xs text-[#5E687E] mb-6">
-            {error || 'Не вдалося завантажити дані для цього уроку.'}
-          </p>
-          <Link
-            href="/catalog"
-            className="font-display font-bold text-xs sm:text-sm px-6 py-3.5 rounded-xl bg-[#1E56FF] text-white hover:bg-[#0D33B3] transition-all inline-flex items-center gap-2"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            Повернутися в каталог
-          </Link>
-        </div>
-      </div>
-    );
-  }
-
-  const formattedDate = material.created_at
-    ? new Date(material.created_at).toLocaleDateString('uk-UA', {
-        day: 'numeric',
-        month: 'long',
-        year: 'numeric',
-      })
-    : '';
 
   return (
-    <div className="min-h-screen bg-volya-grid py-8 sm:py-12">
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
-        {/* Хлібні крихти */}
-        <nav className="flex flex-wrap items-center gap-1.5 text-xs font-mono-math text-[#5E687E]">
-          <Link href="/catalog" className="hover:text-[#1E56FF] transition-colors">
-            Каталог
+    <div className="min-h-screen bg-volya-grid py-10 sm:py-14">
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
+        <div className="flex items-center justify-between">
+          <Link
+            href="/admin"
+            className="inline-flex items-center gap-2 text-xs font-display font-bold text-[#5E687E] hover:text-[#1E56FF] transition-colors"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            Назад до адмін-панелі
           </Link>
-          <ChevronRight className="w-3.5 h-3.5 text-[#94A3B8]" />
-
-          {gradeName && (
-            <>
-              <Link
-                href={`/catalog?grade=${material.grade_id}`}
-                className="hover:text-[#1E56FF] transition-colors"
-              >
-                {gradeName}
-              </Link>
-              <ChevronRight className="w-3.5 h-3.5 text-[#94A3B8]" />
-            </>
-          )}
-
-          {sectionName && (
-            <>
-              <span className="text-[#0D1117] font-semibold">{sectionName}</span>
-              <ChevronRight className="w-3.5 h-3.5 text-[#94A3B8]" />
-            </>
-          )}
-
-          <span className="text-[#1E56FF] font-bold line-clamp-1">
-            {topicName || material.title}
+          <span className="text-xs font-mono-math font-semibold text-[#1E56FF] bg-[#EFF4FF] border border-[#D5E2FF] px-3 py-1 rounded-lg">
+            Редагування матеріалу
           </span>
-        </nav>
-
-        {/* Картка опису */}
-        <div className="bg-white border border-[#E2E8F4] rounded-3xl p-6 sm:p-10 shadow-xs space-y-6">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="flex flex-wrap items-center gap-2">
-              {gradeName && (
-                <span className="px-3 py-1 rounded-lg bg-[#1E56FF] text-white font-display font-black text-xs">
-                  {gradeName}
-                </span>
-              )}
-              {typeName && (
-                <span className="px-3 py-1 rounded-lg bg-[#EFF4FF] border border-[#D5E2FF] text-[#1E56FF] font-mono-math font-bold text-xs">
-                  {typeName}
-                </span>
-              )}
-              <span className="px-3 py-1 rounded-lg bg-[#F0FDF4] text-[#00BA7C] font-mono-math font-semibold text-xs flex items-center gap-1.5">
-                <CheckCircle2 className="w-3.5 h-3.5" />
-                Безкоштовно
-              </span>
-            </div>
-
-            {formattedDate && (
-              <span className="flex items-center gap-1.5 text-xs font-mono-math text-[#5E687E]">
-                <Calendar className="w-3.5 h-3.5" />
-                {formattedDate}
-              </span>
-            )}
-          </div>
-
-          <div>
-            <h1 className="font-display font-black text-2xl sm:text-4xl text-[#0D1117] tracking-tight leading-tight">
-              {material.title}
-            </h1>
-            {material.description && (
-              <p className="mt-4 text-sm sm:text-base text-[#5E687E] leading-relaxed max-w-3xl">
-                {material.description}
-              </p>
-            )}
-          </div>
-
-          <div className="pt-6 border-t border-[#F1F4FA]">
-            <InlineActionButtons
-              fileUrl={material.file_url}
-              externalUrl={material.external_url}
-              title={material.title}
-            />
-          </div>
         </div>
 
-        {/* Робоча область перегляду (HTML-гра, PDF або плеєр) */}
-        {(material.file_url || material.external_url) && (
-          <section className="space-y-3">
-            <div className="flex items-center justify-between px-1">
-              <h3 className="font-display font-bold text-sm text-[#0D1117] uppercase tracking-wider flex items-center gap-2">
-                <Layers className="w-4 h-4 text-[#1E56FF]" />
-                Робоча область матеріалу
-              </h3>
+        <div className="bg-white border border-[#E2E8F4] rounded-3xl p-6 sm:p-10 shadow-xs">
+          <div className="mb-8 pb-6 border-b border-[#F1F4FA]">
+            <h1 className="font-display font-black text-2xl sm:text-3xl text-[#0D1117]">
+              Редагувати навчальний матеріал
+            </h1>
+            <p className="text-xs sm:text-sm text-[#5E687E] mt-1">
+              Змініть параметри, конспект, керуйте файлами або оновіть преміум-доступ
+            </p>
+          </div>
+
+          {errorMsg && (
+            <div className="mb-6 p-4 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs sm:text-sm flex items-start gap-3">
+              <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
+              <span>{errorMsg}</span>
+            </div>
+          )}
+
+          {successMsg && (
+            <div className="mb-6 p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs sm:text-sm flex items-start gap-3">
+              <CheckCircle2 className="w-5 h-5 shrink-0 mt-0.5 text-[#00BA7C]" />
+              <span>{successMsg}</span>
+            </div>
+          )}
+
+          <form onSubmit={handleSubmit} className="space-y-6">
+            <div>
+              <label className="block font-display font-bold text-xs text-[#0D1117] uppercase tracking-wider mb-2">
+                Назва матеріалу *
+              </label>
+              <input
+                type="text"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                className="w-full text-sm bg-[#F7F9FD] border border-[#E2E8F4] text-[#0D1117] rounded-xl px-4 py-3 outline-none focus:border-[#1E56FF] focus:bg-white transition"
+                required
+              />
             </div>
 
-            <InlineMaterialViewer
-              title={material.title}
-              fileUrl={material.file_url}
-              externalUrl={material.external_url}
-              isInteractive={material.is_interactive}
-              typeSlug={typeSlug}
-              typeName={typeName}
-            />
-          </section>
-        )}
+            <div>
+              <label className="block font-display font-bold text-xs text-[#0D1117] uppercase tracking-wider mb-2">
+                Короткий опис
+              </label>
+              <textarea
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                rows={2}
+                className="w-full text-sm bg-[#F7F9FD] border border-[#E2E8F4] text-[#0D1117] rounded-xl p-4 outline-none focus:border-[#1E56FF] focus:bg-white transition resize-y"
+              />
+            </div>
 
-        {/* Блок структурованого конспекту уроку */}
-        {material.content && (
-          <section className="space-y-3">
-            <div className="flex items-center justify-between px-1">
-              <h3 className="font-display font-bold text-sm text-[#0D1117] uppercase tracking-wider flex items-center gap-2">
+            <div className="p-5 rounded-2xl bg-[#F7F9FD] border border-[#E2E8F4] space-y-2">
+              <label className="flex items-center gap-2 font-display font-bold text-xs text-[#0D1117] uppercase tracking-wider">
                 <BookOpen className="w-4 h-4 text-[#1E56FF]" />
-                Конспект та методичний план уроку
-              </h3>
+                Конспект уроку та методичні вказівки
+              </label>
+              <textarea
+                value={content}
+                onChange={(e) => setContent(e.target.value)}
+                rows={6}
+                className="w-full text-sm font-sans bg-white border border-[#E2E8F4] text-[#0D1117] rounded-xl p-4 outline-none focus:border-[#1E56FF] transition resize-y"
+              />
+            </div>
 
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block font-display font-bold text-xs text-[#0D1117] uppercase tracking-wider mb-2">
+                  Клас *
+                </label>
+                <select
+                  value={selectedGrade}
+                  onChange={(e) => {
+                    setSelectedGrade(e.target.value);
+                    setSelectedSection('');
+                    setSelectedTopic('');
+                  }}
+                  className="w-full text-sm bg-[#F7F9FD] border border-[#E2E8F4] text-[#0D1117] rounded-xl px-4 py-3 outline-none focus:border-[#1E56FF] cursor-pointer font-medium"
+                  required
+                >
+                  <option value="">-- Оберіть клас --</option>
+                  {taxonomy.grades.map((grade) => (
+                    <option key={grade.id} value={grade.id}>
+                      {grade.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block font-display font-bold text-xs text-[#0D1117] uppercase tracking-wider mb-2">
+                  Тип матеріалу *
+                </label>
+                <select
+                  value={selectedType}
+                  onChange={(e) => setSelectedType(e.target.value)}
+                  className="w-full text-sm bg-[#F7F9FD] border border-[#E2E8F4] text-[#0D1117] rounded-xl px-4 py-3 outline-none focus:border-[#1E56FF] cursor-pointer font-medium"
+                  required
+                >
+                  <option value="">-- Оберіть тип --</option>
+                  {taxonomy.materialTypes.map((type) => (
+                    <option key={type.id} value={type.id}>
+                      {type.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block font-display font-bold text-xs text-[#0D1117] uppercase tracking-wider mb-2">
+                  Розділ
+                </label>
+                <select
+                  value={selectedSection}
+                  onChange={(e) => {
+                    setSelectedSection(e.target.value);
+                    setSelectedTopic('');
+                  }}
+                  disabled={!selectedGrade}
+                  className="w-full text-sm bg-[#F7F9FD] border border-[#E2E8F4] text-[#0D1117] rounded-xl px-4 py-3 outline-none focus:border-[#1E56FF] cursor-pointer font-medium disabled:opacity-50"
+                >
+                  <option value="">-- Оберіть розділ --</option>
+                  {availableSections.map((sec) => (
+                    <option key={sec.id} value={sec.id}>
+                      {sec.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block font-display font-bold text-xs text-[#0D1117] uppercase tracking-wider mb-2">
+                  Тема
+                </label>
+                <select
+                  value={selectedTopic}
+                  onChange={(e) => setSelectedTopic(e.target.value)}
+                  disabled={!selectedSection}
+                  className="w-full text-sm bg-[#F7F9FD] border border-[#E2E8F4] text-[#0D1117] rounded-xl px-4 py-3 outline-none focus:border-[#1E56FF] cursor-pointer font-medium disabled:opacity-50"
+                >
+                  <option value="">-- Оберіть тему --</option>
+                  {availableTopics.map((top) => (
+                    <option key={top.id} value={top.id}>
+                      {top.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            {/* Керування файлами */}
+            <div className="pt-4 border-t border-[#F1F4FA] space-y-4">
+              <label className="block font-display font-bold text-xs text-[#0D1117] uppercase tracking-wider">
+                Прикріплені файли
+              </label>
+
+              {/* Наявні файли в базі */}
+              {existingFiles.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-xs text-[#5E687E]">Вже завантажені файли:</p>
+                  {existingFiles.map((f) => (
+                    <div key={f.id} className="flex items-center justify-between bg-slate-50 border border-[#E2E8F4] p-3 rounded-xl text-xs">
+                      <div className="flex items-center gap-2 overflow-hidden">
+                        <FileText className="w-4 h-4 text-[#1E56FF] shrink-0" />
+                        <a href={f.file_url} target="_blank" rel="noopener noreferrer" className="truncate font-medium text-[#1E56FF] hover:underline">
+                          {f.file_name || 'Файл документа'}
+                        </a>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => deleteExistingFile(f.id)}
+                        className="text-red-500 hover:text-red-700 p-1 cursor-pointer flex items-center gap-1"
+                        title="Видалити файл"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Завантаження нових файлів */}
+              <div className="relative border-2 border-dashed border-[#E2E8F4] hover:border-[#1E56FF] rounded-2xl p-6 text-center transition-colors bg-[#F7F9FD]">
+                <input
+                  type="file"
+                  multiple
+                  onChange={handleNewFileChange}
+                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                  accept=".html,.htm,.pdf,.pptx,.ppt,.docx,.doc,.zip,.png,.jpg"
+                />
+                <div className="flex flex-col items-center pointer-events-none">
+                  <div className="w-10 h-10 rounded-xl bg-[#EFF4FF] text-[#1E56FF] flex items-center justify-center mb-2">
+                    <Upload className="w-5 h-5" />
+                  </div>
+                  <p className="font-display font-bold text-xs sm:text-sm text-[#0D1117]">
+                    Додати нові файли (натисніть або перетягніть)
+                  </p>
+                </div>
+              </div>
+
+              {newFiles.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-xs font-bold text-[#0D1117]">Нові файли до завантаження ({newFiles.length}):</p>
+                  {newFiles.map((f, idx) => (
+                    <div key={idx} className="flex items-center justify-between bg-white border border-[#E2E8F4] p-3 rounded-xl text-xs">
+                      <span className="truncate font-medium">{f.name}</span>
+                      <button type="button" onClick={() => removeNewFile(idx)} className="text-red-500 cursor-pointer">
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div>
+              <label className="block font-display font-bold text-xs text-[#0D1117] uppercase tracking-wider mb-2">
+                Посилання на онлайн-вправу (LearningApps, Wordwall тощо)
+              </label>
+              <input
+                type="url"
+                value={externalUrl}
+                onChange={(e) => setExternalUrl(e.target.value)}
+                className="w-full text-sm bg-[#F7F9FD] border border-[#E2E8F4] text-[#0D1117] rounded-xl px-4 py-3 outline-none focus:border-[#1E56FF] transition"
+              />
+            </div>
+
+            {/* Чекбокси */}
+            <div className="space-y-3 pt-2">
+              <div className="flex items-center gap-3">
+                <input
+                  type="checkbox"
+                  id="interactive-check"
+                  checked={isInteractive}
+                  onChange={(e) => setIsInteractive(e.target.checked)}
+                  className="w-4 h-4 rounded border-[#E2E8F4] text-[#1E56FF] cursor-pointer"
+                />
+                <label htmlFor="interactive-check" className="text-xs font-semibold text-[#0D1117] cursor-pointer">
+                  Це інтерактивний веб-матеріал
+                </label>
+              </div>
+
+              <div className="flex items-center gap-3">
+                <input
+                  type="checkbox"
+                  id="premium-check"
+                  checked={isPremium}
+                  onChange={(e) => setIsPremium(e.target.checked)}
+                  className="w-4 h-4 rounded border-[#E2E8F4] text-amber-600 cursor-pointer"
+                />
+                <label htmlFor="premium-check" className="text-xs font-semibold text-[#0D1117] cursor-pointer">
+                  Зробити матеріал преміальним (доступ за підпискою)
+                </label>
+              </div>
+            </div>
+
+            <div className="pt-6 border-t border-[#F1F4FA] flex justify-end">
               <button
-                type="button"
-                onClick={copyLessonContent}
-                className="text-xs font-display font-bold px-3 py-1.5 rounded-xl border border-[#E2E8F4] bg-white text-[#5E687E] hover:text-[#1E56FF] hover:border-[#1E56FF] transition-all inline-flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                type="submit"
+                disabled={isSubmitting}
+                className="font-display font-bold text-sm px-8 py-3.5 rounded-xl bg-[#1E56FF] text-white hover:bg-[#0D33B3] disabled:opacity-50 transition-all shadow-sm inline-flex items-center gap-2 cursor-pointer"
               >
-                {copiedContent ? (
+                {isSubmitting ? (
                   <>
-                    <Check className="w-3.5 h-3.5 text-[#00BA7C]" />
-                    Скопійовано!
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Збереження змін...
                   </>
                 ) : (
-                  <>
-                    <Copy className="w-3.5 h-3.5" />
-                    Скопіювати конспект
-                  </>
+                  'Зберегти зміни'
                 )}
               </button>
             </div>
-
-            <div className="bg-white border border-[#E2E8F4] rounded-3xl p-6 sm:p-10 shadow-xs">
-              <div className="prose prose-slate max-w-none text-sm sm:text-base text-[#0D1117] leading-relaxed whitespace-pre-line font-sans">
-                {material.content}
-              </div>
-            </div>
-          </section>
-        )}
-
-        {/* Схожі матеріали */}
-        {relatedMaterials.length > 0 && (
-          <section className="pt-8 space-y-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="font-display font-black text-xl text-[#0D1117]">
-                  Інші матеріали для {gradeName || 'цього класу'}
-                </h3>
-                <p className="text-xs text-[#5E687E] mt-0.5">
-                  Рекомендовані розробки для уроку
-                </p>
-              </div>
-              <Link
-                href="/catalog"
-                className="font-display font-bold text-xs text-[#1E56FF] hover:underline"
-              >
-                Усі матеріали →
-              </Link>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {relatedMaterials.map((item: any) => (
-                <InlineRelatedCard key={item.id} item={item} />
-              ))}
-            </div>
-          </section>
-        )}
+          </form>
+        </div>
       </div>
     </div>
   );
