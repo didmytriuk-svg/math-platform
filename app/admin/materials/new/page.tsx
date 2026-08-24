@@ -36,6 +36,7 @@ export default function NewMaterialPage() {
   const [selectedType, setSelectedType] = useState('');
   const [externalUrl, setExternalUrl] = useState('');
   const [isInteractive, setIsInteractive] = useState(false);
+  const [isPremium, setIsPremium] = useState(false); // <--- Додано стан для преміум-статусу
   const [file, setFile] = useState<File | null>(null);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -151,6 +152,7 @@ export default function NewMaterialPage() {
         file_url: uploadedFileUrl,
         external_url: externalUrl.trim() || null,
         is_interactive: isInteractive,
+        is_premium: isPremium, // <--- Передаємо преміум-статус у базу даних
         is_published: true,
       });
 
@@ -397,20 +399,39 @@ export default function NewMaterialPage() {
               />
             </div>
 
-            <div className="flex items-center gap-3">
-              <input
-                type="checkbox"
-                id="interactive-check"
-                checked={isInteractive}
-                onChange={(e) => setIsInteractive(e.target.checked)}
-                className="w-4 h-4 rounded border-[#E2E8F4] text-[#1E56FF] focus:ring-[#1E56FF] cursor-pointer"
-              />
-              <label
-                htmlFor="interactive-check"
-                className="text-xs font-semibold text-[#0D1117] cursor-pointer"
-              >
-                Це інтерактивний веб-матеріал (відкривати у вбудованому плеєрі)
-              </label>
+            {/* Чекбокси параметрів матеріалу */}
+            <div className="space-y-3 pt-2">
+              <div className="flex items-center gap-3">
+                <input
+                  type="checkbox"
+                  id="interactive-check"
+                  checked={isInteractive}
+                  onChange={(e) => setIsInteractive(e.target.checked)}
+                  className="w-4 h-4 rounded border-[#E2E8F4] text-[#1E56FF] focus:ring-[#1E56FF] cursor-pointer"
+                />
+                <label
+                  htmlFor="interactive-check"
+                  className="text-xs font-semibold text-[#0D1117] cursor-pointer"
+                >
+                  Це інтерактивний веб-матеріал (відкривати у вбудованому плеєрі)
+                </label>
+              </div>
+
+              <div className="flex items-center gap-3">
+                <input
+                  type="checkbox"
+                  id="premium-check"
+                  checked={isPremium}
+                  onChange={(e) => setIsPremium(e.target.checked)}
+                  className="w-4 h-4 rounded border-[#E2E8F4] text-amber-600 focus:ring-amber-500 cursor-pointer"
+                />
+                <label
+                  htmlFor="premium-check"
+                  className="text-xs font-semibold text-[#0D1117] cursor-pointer"
+                >
+                  Зробити матеріал преміальним (доступ за підпискою)
+                </label>
+              </div>
             </div>
 
             <div className="pt-6 border-t border-[#F1F4FA] flex justify-end">
