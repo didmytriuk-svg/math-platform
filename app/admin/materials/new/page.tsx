@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, Upload, CheckCircle2, AlertCircle, Loader2, BookOpen } from 'lucide-react';
+import { ArrowLeft, Upload, CheckCircle2, AlertCircle, Loader2, BookOpen, X, FileText } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 
 export default function NewMaterialPage() {
@@ -37,7 +37,9 @@ export default function NewMaterialPage() {
   const [externalUrl, setExternalUrl] = useState('');
   const [isInteractive, setIsInteractive] = useState(false);
   const [isPremium, setIsPremium] = useState(false);
-  const [file, setFile] = useState<File | null>(null);
+  
+  // Зберігаємо масив вибраних файлів
+  const [files, setFiles] = useState<File[]>([]);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -84,6 +86,17 @@ export default function NewMaterialPage() {
     ? taxonomy.topics.filter((t) => t.section_id === selectedSection)
     : [];
 
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) {
+      const chosenFiles = Array.from(e.target.files);
+      setFiles((prev) => [...prev, ...chosenFiles]);
+    }
+  };
+
+  const removeFile = (index: number) => {
+    setFiles((prev) => prev.filter((_, i) => i !== index));
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg(null);
@@ -105,33 +118,7 @@ export default function NewMaterialPage() {
     setIsSubmitting(true);
 
     try {
-      let uploadedFileUrl: string | null = null;
-
-      // 1. Завантаження файлу в сховище
-      if (file) {
-        const fileExt = file.name.split('.').pop();
-        const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
-        const filePath = `documents/${fileName}`;
-
-        const { error: uploadError } = await supabase.storage
-          .from('materials')
-          .upload(filePath, file, {
-            cacheControl: '3600',
-            upsert: false,
-          });
-
-        if (uploadError) {
-          throw new Error(`Помилка сховища файлів: ${uploadError.message}`);
-        }
-
-        const { data: publicUrlData } = supabase.storage
-          .from('materials')
-          .getPublicUrl(filePath);
-
-        uploadedFileUrl = publicUrlData.publicUrl;
-      }
-
-      // 2. Безпечне збереження напряму через клієнт із fallback на API
+      // 1. Створюємо запис матеріалу в таблиці materials (без єдиного file_url, або зберігаємо перший файл як головний для зворотної сумісності)
       const slug = `${title
         .toLowerCase()
         .trim()
@@ -139,30 +126,68 @@ export default function NewMaterialPage() {
         .replace(/[\s_-]+/g, '-')
         .replace(/^-+|-+$/g, '') || 'material'}-${Date.now().toString().slice(-4)}`;
 
-      const { error: insertError } = await supabase.from('materials').insert({
-        title: title.trim(),
-        slug,
-        description: description.trim() || null,
-        content: content.trim() || null,
-        subject_id: selectedSubject || null,
-        grade_id: selectedGrade,
-        section_id: selectedSection || null,
-        topic_id: selectedTopic || null,
-        material_type_id: selectedType,
-        file_url: uploadedFileUrl,
-        external_url: externalUrl.trim() || null,
-        is_interactive: isInteractive,
-        is_premium: isPremium,
-        is_published: true,
-      });
+      const { data: materialData, error: insertError } = await supabase
+        .from('materials')
+        .insert({
+          title: title.trim(),
+          slug,
+          description: description.trim() || null,
+          content: content.trim() || null,
+          subject_id: selectedSubject || null,
+          grade_id: selectedGrade,
+          section_id: selectedSection || null,
+          topic_id: selectedTopic || null,
+          material_type_id: selectedType,
+          external_url: externalUrl.trim() || null,
+          is_interactive: isInteractive,
+          is_premium: isPremium,
+          is_published: true,
+        })
+        .select('id')
+        .single();
 
-      if (insertError) {
-        throw new Error(insertError.message);
+      if (insertError || !materialData) {
+        throw new Error(insertError?.message || 'Помилка створення матеріалу.');
       }
 
-      setSuccessMsg('Матеріал успішно додано!');
+      const materialId = materialData.id;
+
+      // 2. Завантажуємо кожен файл у Supabase Storage та записуємо в таблицю material_files
+      if (files.length > 0) {
+        for (const file of files) {
+          const fileExt = file.name.split('.').pop();
+          const fileNameClean = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
+          const filePath = `documents/${fileNameClean}`;
+
+          const { error: uploadError } = await supabase.storage
+            .from('materials')
+            .upload(filePath, file, {
+              cacheControl: '3600',
+              upsert: false,
+            });
+
+          if (uploadError) {
+            console.error(`Помилка завантаження файлу ${file.name}:`, uploadError.message);
+            continue;
+          }
+
+          const { data: publicUrlData } = supabase.storage
+            .from('materials')
+            .getPublicUrl(filePath);
+
+          // Зберігаємо інформацію про файл у нову таблицю
+          await supabase.from('material_files').insert({
+            material_id: materialId,
+            file_url: publicUrlData.publicUrl,
+            file_name: file.name,
+            file_size: file.size,
+          });
+        }
+      }
+
+      setSuccessMsg('Матеріал та всі файли успішно додано!');
       setTimeout(() => {
-        router.push('/admin'); // Виправлено перенаправлення на існуючий роут адмін-панелі
+        router.push('/admin');
       }, 1200);
     } catch (err: any) {
       setErrorMsg(err.message || 'Сталася помилка під час створення матеріалу.');
@@ -204,7 +229,7 @@ export default function NewMaterialPage() {
               Додати навчальний матеріал
             </h1>
             <p className="text-xs sm:text-sm text-[#5E687E] mt-1">
-              Заповніть поля, додайте конспект, файл (PDF, HTML5, PPTX) або інтерактивне посилання
+              Заповніть поля, додайте конспект, кілька файлів або інтерактивне посилання
             </p>
           </div>
 
@@ -255,9 +280,6 @@ export default function NewMaterialPage() {
                 <BookOpen className="w-4 h-4 text-[#1E56FF]" />
                 Конспект уроку та методичні вказівки
               </label>
-              <p className="text-[11px] text-[#5E687E]">
-                Вставте текст плану заняття, формули, ключові визначення чи розв&apos;язки
-              </p>
               <textarea
                 value={content}
                 onChange={(e) => setContent(e.target.value)}
@@ -323,7 +345,7 @@ export default function NewMaterialPage() {
                   disabled={!selectedGrade}
                   className="w-full text-sm bg-[#F7F9FD] border border-[#E2E8F4] text-[#0D1117] rounded-xl px-4 py-3 outline-none focus:border-[#1E56FF] cursor-pointer font-medium disabled:opacity-50"
                 >
-                  <option value="">-- Оберіть розділ (необов&apos;язково) --</option>
+                  <option value="">-- Оберіть розділ --</option>
                   {availableSections.map((sec) => (
                     <option key={sec.id} value={sec.id}>
                       {sec.name}
@@ -342,7 +364,7 @@ export default function NewMaterialPage() {
                   disabled={!selectedSection}
                   className="w-full text-sm bg-[#F7F9FD] border border-[#E2E8F4] text-[#0D1117] rounded-xl px-4 py-3 outline-none focus:border-[#1E56FF] cursor-pointer font-medium disabled:opacity-50"
                 >
-                  <option value="">-- Оберіть тему (необов&apos;язково) --</option>
+                  <option value="">-- Оберіть тему --</option>
                   {availableTopics.map((top) => (
                     <option key={top.id} value={top.id}>
                       {top.name}
@@ -352,15 +374,17 @@ export default function NewMaterialPage() {
               </div>
             </div>
 
+            {/* Завантаження кількох файлів */}
             <div className="pt-4 border-t border-[#F1F4FA]">
               <label className="block font-display font-bold text-xs text-[#0D1117] uppercase tracking-wider mb-2">
-                Прикріплений файл (HTML, PDF, PPTX, DOCX, ZIP)
+                Прикріпити файли (можна кілька: PDF, PPTX, DOCX, ZIP тощо)
               </label>
               <div className="relative border-2 border-dashed border-[#E2E8F4] hover:border-[#1E56FF] rounded-2xl p-6 text-center transition-colors bg-[#F7F9FD]">
                 <input
                   type="file"
                   id="file-upload"
-                  onChange={(e) => setFile(e.target.files?.[0] || null)}
+                  multiple
+                  onChange={handleFileChange}
                   className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                   accept=".html,.htm,.pdf,.pptx,.ppt,.docx,.doc,.zip,.png,.jpg"
                 />
@@ -368,22 +392,39 @@ export default function NewMaterialPage() {
                   <div className="w-10 h-10 rounded-xl bg-[#EFF4FF] text-[#1E56FF] flex items-center justify-center mb-2">
                     <Upload className="w-5 h-5" />
                   </div>
-                  {file ? (
-                    <p className="font-display font-bold text-sm text-[#1E56FF]">
-                      Обрано: {file.name} ({(file.size / (1024 * 1024)).toFixed(2)} MB)
-                    </p>
-                  ) : (
-                    <>
-                      <p className="font-display font-bold text-xs sm:text-sm text-[#0D1117]">
-                        Натисніть або перетягніть файл сюди
-                      </p>
-                      <p className="text-[11px] text-[#5E687E] mt-1">
-                        HTML-ігри, PDF, PowerPoint, Word, ZIP
-                      </p>
-                    </>
-                  )}
+                  <p className="font-display font-bold text-xs sm:text-sm text-[#0D1117]">
+                    Натисніть або перетягніть файли сюди (можна обрати кілька одразу)
+                  </p>
+                  <p className="text-[11px] text-[#5E687E] mt-1">
+                    PDF, PowerPoint, Word, ZIP, зображення
+                  </p>
                 </div>
               </div>
+
+              {/* Список обраних файлів */}
+              {files.length > 0 && (
+                <div className="mt-4 space-y-2">
+                  <p className="text-xs font-display font-bold text-[#0D1117]">Обрані файли ({files.length}):</p>
+                  <div className="space-y-2">
+                    {files.map((f, idx) => (
+                      <div key={idx} className="flex items-center justify-between bg-white border border-[#E2E8F4] p-3 rounded-xl text-xs">
+                        <div className="flex items-center gap-2 overflow-hidden">
+                          <FileText className="w-4 h-4 text-[#1E56FF] shrink-0" />
+                          <span className="truncate font-medium text-[#0D1117]">{f.name}</span>
+                          <span className="text-[#5E687E] shrink-0">({(f.size / (1024 * 1024)).toFixed(2)} MB)</span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => removeFile(idx)}
+                          className="text-red-500 hover:text-red-700 p-1 cursor-pointer"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
 
             <div>
@@ -409,10 +450,7 @@ export default function NewMaterialPage() {
                   onChange={(e) => setIsInteractive(e.target.checked)}
                   className="w-4 h-4 rounded border-[#E2E8F4] text-[#1E56FF] focus:ring-[#1E56FF] cursor-pointer"
                 />
-                <label
-                  htmlFor="interactive-check"
-                  className="text-xs font-semibold text-[#0D1117] cursor-pointer"
-                >
+                <label htmlFor="interactive-check" className="text-xs font-semibold text-[#0D1117] cursor-pointer">
                   Це інтерактивний веб-матеріал (відкривати у вбудованому плеєрі)
                 </label>
               </div>
@@ -425,10 +463,7 @@ export default function NewMaterialPage() {
                   onChange={(e) => setIsPremium(e.target.checked)}
                   className="w-4 h-4 rounded border-[#E2E8F4] text-amber-600 focus:ring-amber-500 cursor-pointer"
                 />
-                <label
-                  htmlFor="premium-check"
-                  className="text-xs font-semibold text-[#0D1117] cursor-pointer"
-                >
+                <label htmlFor="premium-check" className="text-xs font-semibold text-[#0D1117] cursor-pointer">
                   Зробити матеріал преміальним (доступ за підпискою)
                 </label>
               </div>
@@ -443,7 +478,7 @@ export default function NewMaterialPage() {
                 {isSubmitting ? (
                   <>
                     <Loader2 className="w-4 h-4 animate-spin" />
-                    Публікація матеріалу...
+                    Збереження матеріалу та файлів...
                   </>
                 ) : (
                   'Опублікувати матеріал'
