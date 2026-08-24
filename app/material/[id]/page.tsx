@@ -14,78 +14,13 @@ import {
   Check, 
   ExternalLink, 
   Loader2, 
-  Maximize2, 
-  Minimize2, 
-  FileText, 
   Gamepad2, 
   BookOpen, 
   Copy, 
   RotateCcw,
-  Sparkles,
-  Lock,
-  LogIn
+  Sparkles
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
-import { useAuth } from '@/lib/context/AuthContext';
-import { checkMaterialAccess, AccessCheckResult } from '@/lib/access';
-
-function TariffLockCard({
-  accessResult,
-  gradeName,
-}: {
-  accessResult: AccessCheckResult;
-  gradeName?: string | null;
-}) {
-  const { user, profile } = useAuth();
-
-  return (
-    <div className="w-full bg-[#F7F9FD] border border-[#D5E2FF] rounded-3xl p-8 sm:p-12 text-center shadow-xs">
-      <div className="max-w-md mx-auto space-y-5">
-        <div className="w-12 h-12 rounded-2xl bg-[#EFF4FF] border border-[#D5E2FF] text-[#1E56FF] flex items-center justify-center mx-auto">
-          <Sparkles className="w-6 h-6" />
-        </div>
-
-        <div className="space-y-2">
-          <span className="text-[11px] font-mono-math font-bold text-[#1E56FF] bg-[#EFF4FF] px-3 py-1 rounded-md">
-            Матеріал розширеного доступу
-          </span>
-          
-          <h3 className="font-display font-black text-xl sm:text-2xl text-[#0D1117] tracking-tight">
-            {accessResult.reason === 'needs_upgrade_grade'
-              ? `Цей урок для ${gradeName || 'іншого класу'}`
-              : 'Отримайте доступ до цієї розробки'}
-          </h3>
-
-          <p className="text-xs sm:text-sm text-[#5E687E] leading-relaxed">
-            {accessResult.message || 'Повний запуск гри, готові розвʼязки та редаговані файли PPTX/DOCX доступні за тарифом.'}
-          </p>
-        </div>
-
-        <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
-          <Link
-            href="/pricing"
-            className="w-full sm:w-auto font-display font-bold text-xs sm:text-sm px-6 py-3 rounded-xl bg-[#1E56FF] text-white hover:bg-[#0D33B3] transition-all shadow-xs inline-flex items-center justify-center gap-2"
-          >
-            <Sparkles className="w-4 h-4" />
-            {accessResult.reason === 'needs_upgrade_grade'
-              ? 'Оновити до «Весь каталог 5–11»'
-              : 'Обрати тариф Pro (від 290 грн/рік)'}
-          </Link>
-
-          {!user && (
-            <Link
-              href="/login"
-              className="w-full sm:w-auto font-display font-bold text-xs sm:text-sm px-5 py-3 rounded-xl bg-white border border-[#E2E8F4] text-[#0D1117] hover:border-[#1E56FF] hover:text-[#1E56FF] transition-all inline-flex items-center justify-center gap-1.5"
-            >
-              <LogIn className="w-4 h-4" />
-              Вже є підписка? Увійти
-            </Link>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
 
 function InlineMaterialViewer({
   title,
@@ -95,8 +30,6 @@ function InlineMaterialViewer({
   typeSlug,
   typeName,
   content,
-  accessResult,
-  gradeName,
 }: {
   title: string;
   fileUrl?: string | null;
@@ -105,18 +38,12 @@ function InlineMaterialViewer({
   typeSlug?: string | null;
   typeName?: string | null;
   content?: string | null;
-  accessResult: AccessCheckResult;
-  gradeName?: string | null;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [gameKey, setGameKey] = useState(0);
   const [htmlContent, setHtmlContent] = useState<string | null>(null);
   const [isLoadingHtml, setIsLoadingHtml] = useState(false);
-
-  if (!accessResult.hasAccess) {
-    return <TariffLockCard accessResult={accessResult} gradeName={gradeName} />;
-  }
 
   const targetUrl = externalUrl || fileUrl || '';
   const lowerUrl = targetUrl.toLowerCase();
@@ -356,32 +283,16 @@ function InlineActionButtons({
   title,
   isInteractive,
   typeName,
-  hasAccess,
 }: {
   fileUrl?: string | null;
   externalUrl?: string | null;
   title: string;
   isInteractive?: boolean | null;
   typeName?: string | null;
-  hasAccess: boolean;
 }) {
   const [copied, setCopied] = useState(false);
 
   const isGame = Boolean(isInteractive) || typeName?.toLowerCase().includes('гра') || fileUrl?.toLowerCase().includes('.html');
-
-  if (!hasAccess) {
-    return (
-      <div className="flex flex-wrap items-center gap-3">
-        <Link
-          href="/pricing"
-          className="font-display font-bold text-xs sm:text-sm px-5 py-3 rounded-xl bg-[#1E56FF] text-white hover:bg-[#0D33B3] transition-all shadow-xs inline-flex items-center gap-2"
-        >
-          <Sparkles className="w-4 h-4" />
-          Розблокувати за тарифом
-        </Link>
-      </div>
-    );
-  }
 
   const handleOpenTab = async () => {
     if (externalUrl) {
@@ -493,11 +404,6 @@ function InlineRelatedCard({ item }: { item: any }) {
               {item.material_types.name}
             </span>
           )}
-          {item.is_premium && (
-            <span className="px-2 py-0.5 rounded-md bg-[#EFF4FF] border border-[#D5E2FF] text-[#1E56FF] font-mono-math font-bold text-[10px]">
-              PRO
-            </span>
-          )}
         </div>
         <h4 className="font-display font-bold text-sm text-[#0D1117] group-hover:text-[#1E56FF] transition-colors line-clamp-2 mb-2">
           {item.title}
@@ -521,7 +427,6 @@ export default function MaterialDetailPage() {
   const params = useParams();
   const id = params?.id as string;
   const supabase = createClient();
-  const { profile } = useAuth();
 
   const [material, setMaterial] = useState<any>(null);
   const [gradeName, setGradeName] = useState<string | null>(null);
@@ -604,9 +509,6 @@ export default function MaterialDetailPage() {
     setCopiedContent(true);
     setTimeout(() => setCopiedContent(false), 2000);
   };
-
-  // Розумна перевірка доступу за тарифом
-  const accessResult = checkMaterialAccess(profile, material);
 
   if (isLoading) {
     return (
@@ -701,17 +603,10 @@ export default function MaterialDetailPage() {
                 </span>
               )}
 
-              {material.is_premium ? (
-                <span className="px-3 py-1 rounded-lg bg-[#EFF4FF] border border-[#D5E2FF] text-[#1E56FF] font-mono-math font-bold text-xs flex items-center gap-1.5">
-                  <Sparkles className="w-3.5 h-3.5" />
-                  PRO Матеріал
-                </span>
-              ) : (
-                <span className="px-3 py-1 rounded-lg bg-[#F0FDF4] text-[#00BA7C] font-mono-math font-semibold text-xs flex items-center gap-1.5">
-                  <CheckCircle2 className="w-3.5 h-3.5" />
-                  Безкоштовно
-                </span>
-              )}
+              <span className="px-3 py-1 rounded-lg bg-[#F0FDF4] text-[#00BA7C] font-mono-math font-semibold text-xs flex items-center gap-1.5">
+                <CheckCircle2 className="w-3.5 h-3.5" />
+                Доступно для викладача
+              </span>
             </div>
 
             {formattedDate && (
@@ -740,13 +635,12 @@ export default function MaterialDetailPage() {
               title={material.title}
               isInteractive={material.is_interactive}
               typeName={typeName}
-              hasAccess={accessResult.hasAccess}
             />
           </div>
         </div>
 
-        {/* Робоча область: Гра / PDF або Заглушка тарифу */}
-        {(material.file_url || material.external_url || material.content || !accessResult.hasAccess) && (
+        {/* Робоча область: Гра / PDF */}
+        {(material.file_url || material.external_url || material.content) && (
           <section className="space-y-3">
             <div className="flex items-center justify-between px-1">
               <h3 className="font-display font-bold text-sm text-[#0D1117] uppercase tracking-wider flex items-center gap-2">
@@ -763,8 +657,6 @@ export default function MaterialDetailPage() {
               typeSlug={typeSlug}
               typeName={typeName}
               content={material.content}
-              accessResult={accessResult}
-              gradeName={gradeName}
             />
           </section>
         )}
