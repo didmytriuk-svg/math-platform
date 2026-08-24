@@ -38,7 +38,6 @@ export default function NewMaterialPage() {
   const [isInteractive, setIsInteractive] = useState(false);
   const [isPremium, setIsPremium] = useState(false);
   
-  // Зберігаємо масив вибраних файлів
   const [files, setFiles] = useState<File[]>([]);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -118,7 +117,45 @@ export default function NewMaterialPage() {
     setIsSubmitting(true);
 
     try {
-      // 1. Створюємо запис матеріалу в таблиці materials (без єдиного file_url, або зберігаємо перший файл як головний для зворотної сумісності)
+      let firstFileUrl: string | null = null;
+      const uploadedFileRecords: Array<{ file_url: string; file_name: string; file_size: number }> = [];
+
+      // 1. Спочатку завантажуємо файли у Supabase Storage, щоб отримати їх URL
+      if (files.length > 0) {
+        for (const file of files) {
+          const fileExt = file.name.split('.').pop();
+          const fileNameClean = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
+          const filePath = `documents/${fileNameClean}`;
+
+          const { error: uploadError } = await supabase.storage
+            .from('materials')
+            .upload(filePath, file, {
+              cacheControl: '3600',
+              upsert: false,
+            });
+
+          if (uploadError) {
+            throw new Error(`Помилка завантаження файлу "${file.name}": ${uploadError.message}. Перевірте бакет "materials" у Supabase.`);
+          }
+
+          const { data: publicUrlData } = supabase.storage
+            .from('materials')
+            .getPublicUrl(filePath);
+
+          const fileUrl = publicUrlData.publicUrl;
+          if (!firstFileUrl) {
+            firstFileUrl = fileUrl;
+          }
+
+          uploadedFileRecords.push({
+            file_url: fileUrl,
+            file_name: file.name,
+            file_size: file.size,
+          });
+        }
+      }
+
+      // 2. Створюємо запис матеріалу в таблиці materials
       const slug = `${title
         .toLowerCase()
         .trim()
@@ -139,6 +176,7 @@ export default function NewMaterialPage() {
           topic_id: selectedTopic || null,
           material_type_id: selectedType,
           external_url: externalUrl.trim() || null,
+          file_url: firstFileUrl, // Зберігаємо перший файл також у головне поле для зворотної сумісності
           is_interactive: isInteractive,
           is_premium: isPremium,
           is_published: true,
@@ -147,41 +185,24 @@ export default function NewMaterialPage() {
         .single();
 
       if (insertError || !materialData) {
-        throw new Error(insertError?.message || 'Помилка створення матеріалу.');
+        throw new Error(insertError?.message || 'Помилка створення матеріалу в базі даних.');
       }
 
       const materialId = materialData.id;
 
-      // 2. Завантажуємо кожен файл у Supabase Storage та записуємо в таблицю material_files
-      if (files.length > 0) {
-        for (const file of files) {
-          const fileExt = file.name.split('.').pop();
-          const fileNameClean = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
-          const filePath = `documents/${fileNameClean}`;
-
-          const { error: uploadError } = await supabase.storage
-            .from('materials')
-            .upload(filePath, file, {
-              cacheControl: '3600',
-              upsert: false,
-            });
-
-          if (uploadError) {
-            console.error(`Помилка завантаження файлу ${file.name}:`, uploadError.message);
-            continue;
-          }
-
-          const { data: publicUrlData } = supabase.storage
-            .from('materials')
-            .getPublicUrl(filePath);
-
-          // Зберігаємо інформацію про файл у нову таблицю
-          await supabase.from('material_files').insert({
+      // 3. Зберігаємо всі записи у таблицю material_files
+      if (uploadedFileRecords.length > 0) {
+        for (const record of uploadedFileRecords) {
+          const { error: fileInsertErr } = await supabase.from('material_files').insert({
             material_id: materialId,
-            file_url: publicUrlData.publicUrl,
-            file_name: file.name,
-            file_size: file.size,
+            file_url: record.file_url,
+            file_name: record.file_name,
+            file_size: record.file_size,
           });
+
+          if (fileInsertErr) {
+            console.error('Помилка запису файлу в material_files:', fileInsertErr.message);
+          }
         }
       }
 
@@ -191,7 +212,6 @@ export default function NewMaterialPage() {
       }, 1200);
     } catch (err: any) {
       setErrorMsg(err.message || 'Сталася помилка під час створення матеріалу.');
-    } finally {
       setIsSubmitting(false);
     }
   };
