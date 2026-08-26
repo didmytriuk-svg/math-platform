@@ -48,11 +48,11 @@ export default function NewMaterialPage() {
     async function loadTaxonomy() {
       try {
         const [gRes, tRes, sRes, topRes, subRes] = await Promise.all([
-          supabase.from('grades').select('id, name, number').order('number'),
-          supabase.from('material_types').select('id, name, slug'),
-          supabase.from('sections').select('id, name, grade_id'),
-          supabase.from('topics').select('id, name, section_id'),
-          supabase.from('subjects').select('id, name'),
+          supabase.from('grades').select('*').order('"order"', { ascending: true }),
+          supabase.from('material_types').select('*'),
+          supabase.from('sections').select('*'),
+          supabase.from('topics').select('*'),
+          supabase.from('subjects').select('*'),
         ]);
 
         const data = {
@@ -120,7 +120,6 @@ export default function NewMaterialPage() {
       let firstFileUrl: string | null = null;
       const uploadedFileRecords: Array<{ file_url: string; file_name: string; file_size: number }> = [];
 
-      // 1. Спочатку завантажуємо файли у Supabase Storage, щоб отримати їх URL
       if (files.length > 0) {
         for (const file of files) {
           const fileExt = file.name.split('.').pop();
@@ -135,7 +134,7 @@ export default function NewMaterialPage() {
             });
 
           if (uploadError) {
-            throw new Error(`Помилка завантаження файлу "${file.name}": ${uploadError.message}. Перевірте бакет "materials" у Supabase.`);
+            throw new Error(`Помилка завантаження файлу "${file.name}": ${uploadError.message}.`);
           }
 
           const { data: publicUrlData } = supabase.storage
@@ -155,7 +154,6 @@ export default function NewMaterialPage() {
         }
       }
 
-      // 2. Створюємо запис матеріалу в таблиці materials
       const slug = `${title
         .toLowerCase()
         .trim()
@@ -176,7 +174,7 @@ export default function NewMaterialPage() {
           topic_id: selectedTopic || null,
           material_type_id: selectedType,
           external_url: externalUrl.trim() || null,
-          file_url: firstFileUrl, // Зберігаємо перший файл також у головне поле для зворотної сумісності
+          file_url: firstFileUrl,
           is_interactive: isInteractive,
           is_premium: isPremium,
           is_published: true,
@@ -190,19 +188,14 @@ export default function NewMaterialPage() {
 
       const materialId = materialData.id;
 
-      // 3. Зберігаємо всі записи у таблицю material_files
       if (uploadedFileRecords.length > 0) {
         for (const record of uploadedFileRecords) {
-          const { error: fileInsertErr } = await supabase.from('material_files').insert({
+          await supabase.from('material_files').insert({
             material_id: materialId,
             file_url: record.file_url,
             file_name: record.file_name,
             file_size: record.file_size,
           });
-
-          if (fileInsertErr) {
-            console.error('Помилка запису файлу в material_files:', fileInsertErr.message);
-          }
         }
       }
 
@@ -394,7 +387,6 @@ export default function NewMaterialPage() {
               </div>
             </div>
 
-            {/* Завантаження кількох файлів */}
             <div className="pt-4 border-t border-[#F1F4FA]">
               <label className="block font-display font-bold text-xs text-[#0D1117] uppercase tracking-wider mb-2">
                 Прикріпити файли (можна кілька: PDF, PPTX, DOCX, ZIP тощо)
@@ -421,7 +413,6 @@ export default function NewMaterialPage() {
                 </div>
               </div>
 
-              {/* Список обраних файлів */}
               {files.length > 0 && (
                 <div className="mt-4 space-y-2">
                   <p className="text-xs font-display font-bold text-[#0D1117]">Обрані файли ({files.length}):</p>
@@ -460,7 +451,6 @@ export default function NewMaterialPage() {
               />
             </div>
 
-            {/* Чекбокси параметрів матеріалу */}
             <div className="space-y-3 pt-2">
               <div className="flex items-center gap-3">
                 <input
