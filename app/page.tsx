@@ -9,7 +9,8 @@ import {
   Check,
   ShieldCheck,
   LogIn,
-  KeyRound
+  KeyRound,
+  Target
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { MathParticles } from '@/components/ui/MathParticles';
@@ -55,6 +56,7 @@ export default async function HomePage() {
       material_types: { name: 'Гра' },
       subject: 'Математика 5 клас',
       is_interactive: true,
+      is_premium: false,
     },
     {
       id: 'demo-2',
@@ -64,6 +66,7 @@ export default async function HomePage() {
       material_types: { name: 'Презентація' },
       subject: 'Алгебра',
       is_interactive: false,
+      is_premium: false,
     },
     {
       id: 'demo-3',
@@ -73,6 +76,7 @@ export default async function HomePage() {
       material_types: { name: 'Самостійна робота' },
       subject: 'Алгебра',
       is_interactive: false,
+      is_premium: false,
     },
     {
       id: 'demo-4',
@@ -82,6 +86,7 @@ export default async function HomePage() {
       material_types: { name: 'Контрольна робота' },
       subject: 'Алгебра',
       is_interactive: false,
+      is_premium: true,
     },
     {
       id: 'demo-5',
@@ -91,15 +96,17 @@ export default async function HomePage() {
       material_types: { name: 'Гра' },
       subject: 'Алгебра і початки аналізу',
       is_interactive: true,
+      is_premium: true,
     },
     {
       id: 'demo-6',
       title: 'Підготовка до НМТ: Обчислення інтегралів та площ фігур',
       description: 'Практикум із типовими завданнями тестування минулих років та покроковими коментарями.',
-      grades: { name: '11 клас' },
+      grades: { name: 'НМТ' },
       material_types: { name: 'Тести до уроку' },
       subject: 'Математика НМТ',
       is_interactive: false,
+      is_premium: true,
     },
   ];
 
@@ -270,15 +277,15 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {/* 2. ОБЕРІТЬ КЛАС */}
+      {/* 2. ОБЕРІТЬ КЛАС ТА НМТ */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6 relative z-10">
         <div className="flex items-center justify-between">
           <div>
             <h2 className="font-display font-black text-2xl sm:text-3xl text-[#0D1117]">
-              Оберіть клас
+              Оберіть клас або напрямок
             </h2>
             <p className="text-xs sm:text-sm text-[#5E687E] mt-0.5">
-              Швидкий перехід до програми потрібної паралелі
+              Швидкий перехід до програми потрібної паралелі чи підготовки до іспитів
             </p>
           </div>
           <Link
@@ -289,7 +296,25 @@ export default async function HomePage() {
           </Link>
         </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3 sm:gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3 sm:gap-4">
+          {/* Спеціальна картка НМТ */}
+          <Link
+            href="/catalog?grade=nmt"
+            className="group bg-gradient-to-br from-[#0D1117] to-[#1E293B] text-white rounded-2xl p-4 flex flex-col justify-between hover:scale-[1.02] transition-all shadow-sm min-h-[170px]"
+          >
+            <div>
+              <span className="text-[10px] font-mono-math uppercase tracking-wider text-amber-400 font-bold block">Головне</span>
+              <span className="font-display font-black text-2xl sm:text-3xl block mt-2">🎯 НМТ</span>
+            </div>
+            <div>
+              <p className="text-[11px] text-gray-300 leading-snug mb-2">Тести і тренажери</p>
+              <span className="text-xs font-bold text-[#38BDF8] group-hover:translate-x-1 transition-transform inline-flex items-center gap-1">
+                Перейти →
+              </span>
+            </div>
+          </Link>
+
+          {/* Класи 5–11 */}
           {gradeCardsData.map((item) => {
             const matchedDbGrade = grades.find((g) => g.number === item.num);
             const gradeUrlParam = matchedDbGrade?.id || item.num;
@@ -298,7 +323,7 @@ export default async function HomePage() {
               <Link
                 key={item.num}
                 href={`/catalog?grade=${gradeUrlParam}`}
-                className="group bg-white border border-[#E2E8F4] hover:border-[#1E56FF] rounded-2xl p-5 text-left transition-all duration-200 shadow-2xs hover:shadow-sm flex flex-col justify-between min-h-[170px]"
+                className="group bg-white border border-[#E2E8F4] hover:border-[#1E56FF] rounded-2xl p-4 text-left transition-all duration-200 shadow-2xs hover:shadow-sm flex flex-col justify-between min-h-[170px]"
               >
                 <div>
                   <span className="font-display font-black text-3xl sm:text-4xl text-[#0D1117] block leading-none">
@@ -363,58 +388,73 @@ export default async function HomePage() {
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          {displayMaterials.map((m: any) => (
-            <div
-              key={m.id}
-              className="group bg-white border border-[#E2E8F4] hover:border-[#1E56FF] rounded-3xl p-6 transition-all duration-200 shadow-2xs hover:shadow-sm flex flex-col justify-between"
-            >
-              <div className="space-y-4">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <div className="flex items-center gap-2">
-                    {m.grades?.name && (
-                      <span className="px-3 py-1 rounded-lg bg-[#1E56FF] text-white font-display font-black text-xs">
-                        {m.grades.name}
+          {displayMaterials.map((m: any) => {
+            const isItemLocked = m.is_premium;
+
+            return (
+              <div
+                key={m.id}
+                className="group bg-white border border-[#E2E8F4] hover:border-[#1E56FF] rounded-3xl p-6 transition-all duration-200 shadow-2xs hover:shadow-sm flex flex-col justify-between"
+              >
+                <div className="space-y-4">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      {m.grades?.name && (
+                        <span className="px-3 py-1 rounded-lg bg-[#1E56FF] text-white font-display font-black text-xs">
+                          {m.grades.name}
+                        </span>
+                      )}
+                      <span className="text-xs font-mono-math text-[#5E687E]">
+                        {m.subject || 'Математика'}
                       </span>
-                    )}
-                    <span className="text-xs font-mono-math text-[#5E687E]">
-                      {m.subject || 'Математика'}
-                    </span>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      {m.material_types?.name && (
+                        <span className="px-2.5 py-1 rounded-lg bg-[#EFF4FF] border border-[#D5E2FF] text-[#1E56FF] font-mono-math font-bold text-xs">
+                          {m.material_types.name}
+                        </span>
+                      )}
+
+                      {isItemLocked ? (
+                        <span className="text-[11px] font-mono-math font-semibold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-md inline-flex items-center gap-1">
+                          🔒 Pro
+                        </span>
+                      ) : (
+                        <span className="text-[11px] font-mono-math font-semibold text-[#00BA7C] bg-[#F0FDF4] px-2 py-0.5 rounded-md">
+                          Free
+                        </span>
+                      )}
+                    </div>
                   </div>
 
-                  {m.material_types?.name && (
-                    <span className="px-2.5 py-1 rounded-lg bg-[#EFF4FF] border border-[#D5E2FF] text-[#1E56FF] font-mono-math font-bold text-xs">
-                      {m.material_types.name}
-                    </span>
-                  )}
+                  <div>
+                    <h3 className="font-display font-black text-base sm:text-lg text-[#0D1117] group-hover:text-[#1E56FF] transition-colors leading-snug line-clamp-2">
+                      {m.title}
+                    </h3>
+                    {m.description && (
+                      <p className="text-xs text-[#5E687E] mt-2 line-clamp-2 leading-relaxed">
+                        {m.description}
+                      </p>
+                    )}
+                  </div>
                 </div>
 
-                <div>
-                  <h3 className="font-display font-black text-base sm:text-lg text-[#0D1117] group-hover:text-[#1E56FF] transition-colors leading-snug line-clamp-2">
-                    {m.title}
-                  </h3>
-                  {m.description && (
-                    <p className="text-xs text-[#5E687E] mt-2 line-clamp-2 leading-relaxed">
-                      {m.description}
-                    </p>
-                  )}
+                <div className="pt-6 mt-6 border-t border-[#F1F4FA] flex items-center justify-between">
+                  <span className="flex items-center gap-1.5 text-xs font-mono-math text-[#5E687E]">
+                    Доступно
+                  </span>
+
+                  <Link
+                    href={m.id.startsWith('demo-') ? '/catalog' : `/material/${m.id}`}
+                    className="font-display font-bold text-xs text-[#0D1117] group-hover:text-[#1E56FF] transition-colors inline-flex items-center gap-1"
+                  >
+                    {isItemLocked ? 'Деталі' : 'Відкрити'} →
+                  </Link>
                 </div>
               </div>
-
-              <div className="pt-6 mt-6 border-t border-[#F1F4FA] flex items-center justify-between">
-                <span className="flex items-center gap-1.5 text-xs font-mono-math text-[#00BA7C] font-semibold">
-                  <span className="w-2 h-2 rounded-full bg-[#00BA7C]" />
-                  Відкритий доступ
-                </span>
-
-                <Link
-                  href={m.id.startsWith('demo-') ? '/catalog' : `/material/${m.id}`}
-                  className="font-display font-bold text-xs text-[#0D1117] group-hover:text-[#1E56FF] transition-colors inline-flex items-center gap-1"
-                >
-                  Відкрити →
-                </Link>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </section>
 

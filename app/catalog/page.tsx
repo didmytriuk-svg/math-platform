@@ -8,7 +8,8 @@ import {
   ChevronRight, 
   Loader2, 
   SearchX,
-  X
+  X,
+  Lock
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 
@@ -36,7 +37,6 @@ function CatalogContent() {
     async function loadCatalogData() {
       setIsLoading(true);
       try {
-        // Завантажуємо матеріали та довідники паралельно
         const [mRes, gRes, tRes, sRes] = await Promise.all([
           supabase.from('materials').select('*').eq('is_published', true).order('created_at', { ascending: false }),
           supabase.from('grades').select('*'),
@@ -53,7 +53,6 @@ function CatalogContent() {
         setMaterialTypes(rawTypes);
         setSections(rawSections);
 
-        // Збагачуємо матеріали зв'язками на фронтенді, щоб уникнути помилок join у Supabase
         const enriched = rawMaterials.map((m) => ({
           ...m,
           grades: rawGrades.find((g: any) => g.id === m.grade_id),
@@ -216,58 +215,68 @@ function CatalogContent() {
             </div>
           ) : filteredMaterials.length > 0 ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {filteredMaterials.map((m) => (
-                <div
-                  key={m.id}
-                  className="group bg-white border border-[#E2E8F4] hover:border-[#1E56FF] rounded-3xl p-6 transition-all duration-200 shadow-2xs hover:shadow-sm flex flex-col justify-between"
-                >
-                  <div className="space-y-4">
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <div className="flex items-center gap-2">
-                        {m.grades?.name && (
-                          <span className="px-3 py-1 rounded-lg bg-[#1E56FF] text-white font-display font-black text-xs">
-                            {m.grades.name}
+              {filteredMaterials.map((m) => {
+                const isItemLocked = m.is_premium || m.access_tier === 'grade_pro' || m.access_tier === 'pro_all';
+
+                return (
+                  <div
+                    key={m.id}
+                    className="group bg-white border border-[#E2E8F4] hover:border-[#1E56FF] rounded-3xl p-6 transition-all duration-200 shadow-2xs hover:shadow-sm flex flex-col justify-between"
+                  >
+                    <div className="space-y-4">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div className="flex items-center gap-2">
+                          {m.grades?.name && (
+                            <span className="px-3 py-1 rounded-lg bg-[#1E56FF] text-white font-display font-black text-xs">
+                              {m.grades.name}
+                            </span>
+                          )}
+                          {m.material_types?.name && (
+                            <span className="px-2.5 py-1 rounded-lg bg-[#EFF4FF] border border-[#D5E2FF] text-[#1E56FF] font-mono-math font-bold text-xs">
+                              {m.material_types.name}
+                            </span>
+                          )}
+                        </div>
+
+                        {isItemLocked ? (
+                          <span className="text-[11px] font-mono-math font-semibold text-amber-700 bg-amber-50 border border-amber-200 px-2.5 py-0.5 rounded-md inline-flex items-center gap-1">
+                            🔒 Pro
                           </span>
-                        )}
-                        {m.material_types?.name && (
-                          <span className="px-2.5 py-1 rounded-lg bg-[#EFF4FF] border border-[#D5E2FF] text-[#1E56FF] font-mono-math font-bold text-xs">
-                            {m.material_types.name}
+                        ) : (
+                          <span className="text-[11px] font-mono-math font-semibold text-[#00BA7C] bg-[#F0FDF4] px-2 py-0.5 rounded-md">
+                            Free
                           </span>
                         )}
                       </div>
 
-                      <span className="text-[11px] font-mono-math font-semibold text-[#00BA7C] bg-[#F0FDF4] px-2 py-0.5 rounded-md">
-                        Free
+                      <div>
+                        <h3 className="font-display font-black text-base sm:text-lg text-[#0D1117] group-hover:text-[#1E56FF] transition-colors leading-snug line-clamp-2">
+                          {m.title}
+                        </h3>
+                        {m.description && (
+                          <p className="text-xs text-[#5E687E] mt-2 line-clamp-2 leading-relaxed">
+                            {m.description}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="pt-6 mt-6 border-t border-[#F1F4FA] flex items-center justify-between">
+                      <span className="text-xs font-mono-math text-[#94A3B8]">
+                        {m.sections?.name || 'Математика'}
                       </span>
-                    </div>
 
-                    <div>
-                      <h3 className="font-display font-black text-base sm:text-lg text-[#0D1117] group-hover:text-[#1E56FF] transition-colors leading-snug line-clamp-2">
-                        {m.title}
-                      </h3>
-                      {m.description && (
-                        <p className="text-xs text-[#5E687E] mt-2 line-clamp-2 leading-relaxed">
-                          {m.description}
-                        </p>
-                      )}
+                      <Link
+                        href={`/material/${m.id}`}
+                        className="font-display font-bold text-xs px-4 py-2 rounded-xl bg-[#0D1117] text-white group-hover:bg-[#1E56FF] transition-colors inline-flex items-center gap-1.5 shadow-xs"
+                      >
+                        {isItemLocked ? 'Деталі' : 'Відкрити'}
+                        <ChevronRight className="w-3.5 h-3.5" />
+                      </Link>
                     </div>
                   </div>
-
-                  <div className="pt-6 mt-6 border-t border-[#F1F4FA] flex items-center justify-between">
-                    <span className="text-xs font-mono-math text-[#94A3B8]">
-                      {m.sections?.name || 'Математика'}
-                    </span>
-
-                    <Link
-                      href={`/material/${m.id}`}
-                      className="font-display font-bold text-xs px-4 py-2 rounded-xl bg-[#0D1117] text-white group-hover:bg-[#1E56FF] transition-colors inline-flex items-center gap-1.5 shadow-xs"
-                    >
-                      Відкрити
-                      <ChevronRight className="w-3.5 h-3.5" />
-                    </Link>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           ) : (
             <div className="bg-white border border-[#E2E8F4] rounded-3xl p-12 text-center space-y-4 max-w-md mx-auto my-8">
@@ -285,7 +294,7 @@ function CatalogContent() {
               <button
                 type="button"
                 onClick={resetFilters}
-                className="font-display font-bold text-xs px-5 py.5 rounded-xl bg-[#1E56FF] text-white hover:bg-[#0D33B3] transition-colors inline-flex items-center gap-2 cursor-pointer"
+                className="font-display font-bold text-xs px-5 py-2.5 rounded-xl bg-[#1E56FF] text-white hover:bg-[#0D33B3] transition-colors inline-flex items-center gap-2 cursor-pointer"
               >
                 Показати всі матеріали
               </button>
