@@ -10,8 +10,8 @@ import {
   CheckCircle2, 
   AlertCircle, 
   Loader2,
-  UserCheck,
-  Calendar
+  Copy,
+  Check
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 
@@ -22,32 +22,32 @@ export default function AdminSubscriptionsPage() {
   const [grades, setGrades] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Форма додавання підписки
+  // Форма видачі доступу
   const [email, setEmail] = useState('');
   const [tier, setTier] = useState('pro_all');
   const [selectedGradeId, setSelectedGradeId] = useState('');
-  const [months, setMonths] = useState(12); // за замовчуванням на 1 рік
-
+  
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  const [successMsg, setSuccessMsg] = useState<string | null>(null);
+  const [createdDetails, setCreatedDetails] = useState<any | null>(null);
+  const [copied, setCopied] = useState(false);
 
-  // Завантаження підписок та класів
   const loadData = async () => {
     setIsLoading(true);
     try {
+      // Отримуємо підписки та класи
       const [subRes, gradeRes] = await Promise.all([
         supabase
           .from('user_subscriptions')
           .select('*, grades(name)')
           .order('created_at', { ascending: false }),
-        supabase.from('grades').select('*').order('"order"', { ascending: true })
+        supabase.from('grades').select('*').order('number', { ascending: true })
       ]);
 
       setSubscriptions(subRes.data || []);
-      setGrades(gradeRes.data || []);
+      setGrades(gradeRes.data || [] );
     } catch (err) {
-      console.error('Error loading subscriptions data:', err);
+      console.error('Error loading data:', err);
     } finally {
       setIsLoading(false);
     }
@@ -57,11 +57,11 @@ export default function AdminSubscriptionsPage() {
     loadData();
   }, [supabase]);
 
-  // Функція активації підписки для викладача
+  // Створення підписки та генерація доступу
   const handleCreateSubscription = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg(null);
-    setSuccessMsg(null);
+    setCreatedDetails(null);
 
     if (!email.trim() || !email.includes('@')) {
       setErrorMsg('Введіть коректну електронну пошту викладача.');
@@ -71,21 +71,50 @@ export default function AdminSubscriptionsPage() {
     setIsSubmitting(true);
 
     try {
-      // 1. Шукаємо користувача за email у Supabase (або створюємо через адмінські функції / симулюємо через auth запит)
-      // Оскільки створення користувача в auth вимагає service_role ключа, на фронтенді ми шукаємо його ID або створюємо запис.
-      // Для зручності адмін-панелі: викликаємо спеціальний серверний метод або перевіряємо чи є такий юзер в таблиці auth.
-      // Якщо на клієнті немає прямого доступу до auth.users, зробимо запит до нашої бази або Edge Function.
-      
-      // Найпростіший надійний шлях для MVP: звертаємося до бази чи передаємо запит. 
-      // Давай збережемо підписку через зв'язок з email або використаємо бекенд-логіку.
-      
-      // Перевіримо, чи існує викладач у базі через таблицю профілів або auth (якщо налаштовано trigger на створення).
-      // У нашому випадку даймо можливість ввести ID або зв'язати через auth. 
-      
-      // Для спрощення: запитуємо користувача через Supabase Auth Admin (якщо є бекенд) або зв'язуємо за email.
-      // Давай зробимо пряму вставку, якщо у нас є user_id. Якщо ні — покажемо підказку ввести ID або email.
-      
-      setSuccessMsg(`Підписку для ${email} успішно налаштовано!`);
+      // 1. Генеруємо випадковий безпечний пароль для викладача
+      const generatedPassword = 'math' + Math.random().toString(36.slice(-6)) + '-v7';
+      const expiresDate = new Date();
+      expiresDate.setFullYear(expiresDate.getFullYear() + 1); // +1 рік
+
+      // 2. Реєструємо викладача в Supabase Auth (або знаходимо існуючого)
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email: email.trim(),
+        password: generatedPassword,
+      });
+
+      let userId = authData?.user?.id;
+
+      // Якщо користувач вже існує в системі, спробуємо знайти його або оновити підписку
+      if (authError && authError.message.includes('already registered')) {
+        // Якщо вже зареєстрований, шукаємо його через таблицю або даємо можливість прив'язати
+        setErrorMsg('Ця пошта вже зареєстрована. Видалиіть стару підписку або оновіть її.');
+        setIsSubmitting(false);
+        return;
+      }
+
+      if (!userId) {
+        throw new Error(authError?.message || 'Не вдалося створити обліковий запис.');
+      }
+
+      // 3. Зберігаємо підписку в таблиці user_subscriptions
+      const { error: subError } = await supabase.from('user_subscriptions').insert({
+        user_id: userId,
+        tier: tier,
+        grade_id: tier === 'grade_pro' ? selectedGradeId : null,
+        is_active: true,
+        expires_at: expiresDate.toISOString(),
+      });
+
+      if (subError) throw subError;
+
+      // Зберігаємо деталі для виведення адміну
+      setCreatedDetails({
+        email: email.trim(),
+        password: generatedPassword,
+        tierName: tier === 'pro_all' ? 'Pro — весь каталог (5–11 класи)' : 'Pro — один клас',
+        expiresAt: expiresDate.toLocaleDateString('uk-UA'),
+      });
+
       setEmail('');
       loadData();
     } catch (err: any) {
@@ -95,9 +124,9 @@ export default function AdminSubscriptionsPage() {
     }
   };
 
-  // Видалення / деактивація підписки
+  // Видалення підписки
   const handleDeleteSub = async (subId: string) => {
-    if (!confirm('Ви впевнені, що хочете видалити цю підписку?')) return;
+    if (!confirm('Ви впевнені, що хочете забрати доступ у цього викладача?')) return;
 
     const { error } = await supabase
       .from('user_subscriptions')
@@ -107,15 +136,24 @@ export default function AdminSubscriptionsPage() {
     if (!error) {
       setSubscriptions((prev) => prev.filter((s) => s.id !== subId));
     } else {
-      alert('Помилка видалення підписки: ' + error.message);
+      alert('Помилка видалення: ' + error.message);
     }
+  };
+
+  // Копіювання повідомлення для клієнта
+  const handleCopyMessage = () => {
+    if (!createdDetails) return;
+    const text = `Вітаємо! Ваш доступ до платформи Volya Academy активовано.\n\n🌐 Сайт: ${window.location.origin}/login\n📧 Логін (Email): ${createdDetails.email}\n🔑 Пароль: ${createdDetails.password}\n⭐ Тариф: ${createdDetails.tierName}\n📅 Діє до: ${createdDetails.expiresAt}\n\nПриємного користування матеріалами на уроках!`;
+    navigator.clipboard.writeText(text);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
   };
 
   return (
     <div className="min-h-screen bg-volya-grid py-10 sm:py-14">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
         
-        {/* Шапка */}
+        {/* Навігація */}
         <div className="flex items-center justify-between">
           <Link
             href="/admin"
@@ -129,151 +167,164 @@ export default function AdminSubscriptionsPage() {
           </span>
         </div>
 
-        {/* Форма видачі доступу */}
-        <div className="bg-white border border-[#E2E8F4] rounded-3xl p-6 sm:p-8 shadow-xs space-y-6">
-          <div className="border-b border-[#F1F4FA] pb-4">
-            <h2 className="font-display font-black text-xl text-[#0D1117]">
-              Надати Pro-доступ викладачу
-            </h2>
-            <p className="text-xs text-[#5E687E] mt-0.5">
-              Після оплати на карту введіть пошту викладача та оберіть термін і тариф
-            </p>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          
+          {/* Ліва колонка: Форма та результат */}
+          <div className="space-y-6">
+            <div className="bg-white border border-[#E2E8F4] rounded-3xl p-6 sm:p-8 shadow-xs space-y-6">
+              <div className="border-b border-[#F1F4FA] pb-4">
+                <h2 className="font-display font-black text-xl text-[#0D1117]">
+                  Видати або оновити доступ
+                </h2>
+                <p className="text-xs text-[#5E687E] mt-0.5">
+                  Після підтвердження оплати введіть пошту викладача
+                </p>
+              </div>
+
+              {errorMsg && (
+                <div className="p-4 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 shrink-0" />
+                  <span>{errorMsg}</span>
+                </div>
+              )}
+
+              {createdDetails && (
+                <div className="p-5 rounded-2xl bg-[#F0FDF4] border border-[#BBF7D0] space-y-4">
+                  <div className="flex items-center gap-2 text-[#00BA7C] font-display font-bold text-xs">
+                    <CheckCircle2 className="w-4 h-4" />
+                    Доступ успішно створено!
+                  </div>
+                  <div className="p-4 rounded-xl bg-white border border-[#E2E8F4] text-xs space-y-1.5 font-mono text-[#0D1117]">
+                    <p>🌐 <strong>Сайт:</strong> {typeof window !== 'undefined' ? window.location.origin : ''}/login</p>
+                    <p>📧 <strong>Логін:</strong> {createdDetails.email}</p>
+                    <p>🔑 <strong>Пароль:</strong> {createdDetails.password}</p>
+                    <p>⭐ <strong>Тариф:</strong> {createdDetails.tierName}</p>
+                    <p>📅 <strong>Діє до:</strong> {createdDetails.expiresAt}</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleCopyMessage}
+                    className="w-full font-display font-bold text-xs py-2.5 rounded-xl bg-[#00BA7C] text-white hover:bg-emerald-600 transition-colors inline-flex items-center justify-center gap-2 cursor-pointer"
+                  >
+                    {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                    {copied ? 'Скопійовано!' : 'Скопіювати повідомлення для клієнта'}
+                  </button>
+                </div>
+              )}
+
+              <form onSubmit={handleCreateSubscription} className="space-y-4">
+                <div>
+                  <label className="block font-display font-bold text-xs text-[#0D1117] uppercase tracking-wider mb-2">
+                    Email викладача *
+                  </label>
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="teacher@gmail.com"
+                    className="w-full text-sm bg-[#F7F9FD] border border-[#E2E8F4] text-[#0D1117] rounded-xl px-4 py-3 outline-none focus:border-[#1E56FF]"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-display font-bold text-xs text-[#0D1117] uppercase tracking-wider mb-2">
+                    Тарифний план *
+                  </label>
+                  <select
+                    value={tier}
+                    onChange={(e) => setTier(e.target.value)}
+                    className="w-full text-sm bg-[#F7F9FD] border border-[#E2E8F4] text-[#0D1117] rounded-xl px-4 py-3 outline-none focus:border-[#1E56FF] cursor-pointer"
+                  >
+                    <option value="pro_all">Pro — Весь каталог (All-Access)</option>
+                    <option value="grade_pro">Pro — Один клас</option>
+                  </select>
+                </div>
+
+                {tier === 'grade_pro' && (
+                  <div>
+                    <label className="block font-display font-bold text-xs text-[#0D1117] uppercase tracking-wider mb-2">
+                      Оберіть клас *
+                    </label>
+                    <select
+                      value={selectedGradeId}
+                      onChange={(e) => setSelectedGradeId(e.target.value)}
+                      className="w-full text-sm bg-[#F7F9FD] border border-[#E2E8F4] text-[#0D1117] rounded-xl px-4 py-3 outline-none focus:border-[#1E56FF] cursor-pointer"
+                      required={tier === 'grade_pro'}
+                    >
+                      <option value="">-- Оберіть клас --</option>
+                      {grades.map((g) => (
+                        <option key={g.id} value={g.id}>{g.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="w-full font-display font-bold text-xs sm:text-sm py-3.5 bg-[#1E56FF] hover:bg-[#0D33B3] text-white rounded-xl transition-all shadow-xs inline-flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 mt-2"
+                >
+                  {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+                  Створити доступ та згенерувати пароль
+                </button>
+              </form>
+            </div>
           </div>
 
-          {errorMsg && (
-            <div className="p-4 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs flex items-center gap-2">
-              <AlertCircle className="w-4 h-4 shrink-0" />
-              <span>{errorMsg}</span>
-            </div>
-          )}
-
-          {successMsg && (
-            <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs flex items-center gap-2">
-              <CheckCircle2 className="w-4 h-4 shrink-0 text-[#00BA7C]" />
-              <span>{successMsg}</span>
-            </div>
-          )}
-
-          <form onSubmit={handleCreateSubscription} className="grid grid-cols-1 sm:grid-cols-4 gap-4 items-end">
-            <div className="sm:col-span-2">
-              <label className="block font-display font-bold text-xs text-[#0D1117] uppercase tracking-wider mb-2">
-                Email викладача *
-              </label>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="teacher@gmail.com"
-                className="w-full text-sm bg-[#F7F9FD] border border-[#E2E8F4] text-[#0D1117] rounded-xl px-4 py-3 outline-none focus:border-[#1E56FF]"
-                required
-              />
-            </div>
-
-            <div>
-              <label className="block font-display font-bold text-xs text-[#0D1117] uppercase tracking-wider mb-2">
-                Тарифний план *
-              </label>
-              <select
-                value={tier}
-                onChange={(e) => setTier(e.target.value)}
-                className="w-full text-sm bg-[#F7F9FD] border border-[#E2E8F4] text-[#0D1117] rounded-xl px-4 py-3 outline-none focus:border-[#1E56FF] cursor-pointer"
-              >
-                <option value="pro_all">Pro — Весь каталог (All-Access)</option>
-                <option value="grade_pro">Pro — Один клас</option>
-              </select>
-            </div>
-
-            {tier === 'grade_pro' && (
-              <div>
-                <label className="block font-display font-bold text-xs text-[#0D1117] uppercase tracking-wider mb-2">
-                  Оберіть клас *
-                </label>
-                <select
-                  value={selectedGradeId}
-                  onChange={(e) => setSelectedGradeId(e.target.value)}
-                  className="w-full text-sm bg-[#F7F9FD] border border-[#E2E8F4] text-[#0D1117] rounded-xl px-4 py-3 outline-none focus:border-[#1E56FF] cursor-pointer"
-                  required={tier === 'grade_pro'}
-                >
-                  <option value="">-- Оберіть клас --</option>
-                  {grades.map((g) => (
-                    <option key={g.id} value={g.id}>{g.name}</option>
-                  ))}
-                </select>
+          {/* Права колонка: Список викладачів */}
+          <div className="space-y-6">
+            <div className="bg-white border border-[#E2E8F4] rounded-3xl p-6 sm:p-8 shadow-xs space-y-4">
+              <div className="border-b border-[#F1F4FA] pb-4">
+                <h3 className="font-display font-black text-xl text-[#0D1117]">
+                  Список активних викладачів ({subscriptions.length})
+                </h3>
+                <p className="text-xs text-[#5E687E] mt-0.5">
+                  Користувачі, які мають активний доступ до матеріалів
+                </p>
               </div>
-            )}
 
-            <div className="sm:col-span-4 flex justify-end pt-2">
-              <button
-                type="submit"
-                disabled={isSubmitting}
-                className="font-display font-bold text-xs sm:text-sm px-6 py-3 bg-[#1E56FF] hover:bg-[#0D33B3] text-white rounded-xl transition-all shadow-xs inline-flex items-center gap-2 cursor-pointer disabled:opacity-50"
-              >
-                {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
-                Активувати підписку
-              </button>
-            </div>
-          </form>
-        </div>
-
-        {/* Список активних підписок */}
-        <div className="bg-white border border-[#E2E8F4] rounded-3xl p-6 sm:p-8 shadow-xs space-y-4">
-          <h3 className="font-display font-black text-lg text-[#0D1117]">
-            Активні підписки викладачів ({subscriptions.length})
-          </h3>
-
-          {isLoading ? (
-            <div className="py-12 flex items-center justify-center text-[#5E687E]">
-              <Loader2 className="w-6 h-6 animate-spin text-[#1E56FF]" />
-            </div>
-          ) : subscriptions.length > 0 ? (
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs">
-                <thead>
-                  <tr className="border-b border-[#F1F4FA] text-[#5E687E] font-mono-math">
-                    <th className="py-3 px-4 font-bold">Користувач (User ID)</th>
-                    <th className="py-3 px-4 font-bold">Тариф</th>
-                    <th className="py-3 px-4 font-bold">Статус</th>
-                    <th className="py-3 px-4 font-bold">Термін дії до</th>
-                    <th className="py-3 px-4 font-bold text-right">Дії</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-[#F1F4FA]">
+              {isLoading ? (
+                <div className="py-12 flex items-center justify-center text-[#5E687E]">
+                  <Loader2 className="w-6 h-6 animate-spin text-[#1E56FF]" />
+                </div>
+              ) : subscriptions.length > 0 ? (
+                <div className="space-y-3">
                   {subscriptions.map((sub) => (
-                    <tr key={sub.id} className="hover:bg-[#F7F9FD] transition-colors">
-                      <td className="py-3.5 px-4 font-mono text-[#0D1117] truncate max-w-[200px]">
-                        {sub.user_id}
-                      </td>
-                      <td className="py-3.5 px-4 font-semibold text-[#0D1117]">
-                        {sub.tier === 'pro_all' ? 'Pro — Весь каталог' : `Pro — Клас (${sub.grades?.name || 'Н/Д'})`}
-                      </td>
-                      <td className="py-3.5 px-4">
-                        <span className="px-2.5 py-1 rounded-md bg-[#F0FDF4] text-[#00BA7C] font-semibold">
-                          Активна
-                        </span>
-                      </td>
-                      <td className="py-3.5 px-4 text-[#5E687E]">
-                        {sub.expires_at ? new Date(sub.expires_at).toLocaleDateString('uk-UA') : 'Безстроково'}
-                      </td>
-                      <td className="py-3.5 px-4 text-right">
-                        <button
-                          type="button"
-                          onClick={() => handleDeleteSub(sub.id)}
-                          className="p-1.5 rounded-lg text-red-500 hover:bg-red-50 transition-colors cursor-pointer"
-                          title="Видалити підписку"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </td>
-                    </tr>
+                    <div key={sub.id} className="p-4 rounded-2xl bg-[#F7F9FD] border border-[#E2E8F4] flex items-center justify-between gap-4">
+                      <div className="space-y-1 overflow-hidden">
+                        <p className="font-mono text-xs font-bold text-[#0D1117] truncate">
+                          ID: {sub.user_id}
+                        </p>
+                        <div className="flex items-center gap-2">
+                          <span className="px-2 py-0.5 rounded bg-[#EFF4FF] text-[#1E56FF] font-mono-math font-bold text-[10px]">
+                            {sub.tier === 'pro_all' ? 'Pro — Весь каталог' : `Pro — Клас (${sub.grades?.name || 'Н/Д'})`}
+                          </span>
+                          <span className="text-[10px] text-[#5E687E]">
+                            До: {sub.expires_at ? new Date(sub.expires_at).toLocaleDateString('uk-UA') : 'Безстроково'}
+                          </span>
+                        </div>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteSub(sub.id)}
+                        className="p-2 rounded-xl text-red-500 hover:bg-red-50 transition-colors cursor-pointer shrink-0"
+                        title="Видалити підписку"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
                   ))}
-                </tbody>
-              </table>
+                </div>
+              ) : (
+                <p className="text-xs text-[#5E687E] py-12 text-center italic">
+                  Викладачів поки що немає.
+                </p>
+              )}
             </div>
-          ) : (
-            <p className="text-xs text-[#5E687E] py-8 text-center italic">
-              Поки що немає активних підписок у системі.
-            </p>
-          )}
+          </div>
+
         </div>
 
       </div>
