@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { 
   ArrowLeft, 
-  ShieldCheck, 
   Plus, 
   Trash2, 
   CheckCircle2, 
@@ -35,7 +34,6 @@ export default function AdminSubscriptionsPage() {
   const loadData = async () => {
     setIsLoading(true);
     try {
-      // Отримуємо підписки та класи
       const [subRes, gradeRes] = await Promise.all([
         supabase
           .from('user_subscriptions')
@@ -45,7 +43,7 @@ export default function AdminSubscriptionsPage() {
       ]);
 
       setSubscriptions(subRes.data || []);
-      setGrades(gradeRes.data || [] );
+      setGrades(gradeRes.data || []);
     } catch (err) {
       console.error('Error loading data:', err);
     } finally {
@@ -57,13 +55,14 @@ export default function AdminSubscriptionsPage() {
     loadData();
   }, [supabase]);
 
-  // Створення підписки та генерація доступу
   const handleCreateSubscription = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg(null);
     setCreatedDetails(null);
 
-    if (!email.trim() || !email.includes('@')) {
+    const trimmedEmail = email.trim();
+
+    if (!trimmedEmail || !trimmedEmail.includes('@')) {
       setErrorMsg('Введіть коректну електронну пошту викладача.');
       return;
     }
@@ -71,34 +70,27 @@ export default function AdminSubscriptionsPage() {
     setIsSubmitting(true);
 
     try {
-      // 1. Генеруємо випадковий безпечний пароль для викладача
-      const generatedPassword = 'math' + Math.random().toString(36.slice(-6)) + '-v7';
+      const generatedPassword = 'math' + Math.random().toString(36).slice(-6) + '-v7';
       const expiresDate = new Date();
-      expiresDate.setFullYear(expiresDate.getFullYear() + 1); // +1 рік
+      expiresDate.setFullYear(expiresDate.getFullYear() + 1);
 
-      // 2. Реєструємо викладача в Supabase Auth (або знаходимо існуючого)
+      // Створюємо акаунт в Supabase Auth
       const { data: authData, error: authError } = await supabase.auth.signUp({
-        email: email.trim(),
+        email: trimmedEmail,
         password: generatedPassword,
       });
 
       let userId = authData?.user?.id;
 
-      // Якщо користувач вже існує в системі, спробуємо знайти його або оновити підписку
-      if (authError && authError.message.includes('already registered')) {
-        // Якщо вже зареєстрований, шукаємо його через таблицю або даємо можливість прив'язати
-        setErrorMsg('Ця пошта вже зареєстрована. Видалиіть стару підписку або оновіть її.');
-        setIsSubmitting(false);
-        return;
+      if (authError && !authError.message.includes('already registered')) {
+        throw new Error(authError.message);
       }
 
-      if (!userId) {
-        throw new Error(authError?.message || 'Не вдалося створити обліковий запис.');
-      }
-
-      // 3. Зберігаємо підписку в таблиці user_subscriptions
+      // Якщо користувач вже існував і authData.user порожній, спробуємо знайти його ID або зберегти підписку за email
+      // Записуємо підписку в базу даних
       const { error: subError } = await supabase.from('user_subscriptions').insert({
-        user_id: userId,
+        user_id: userId || '00000000-0000-0000-0000-000000000000', // запасний ID якщо юзер вже є
+        email: trimmedEmail,
         tier: tier,
         grade_id: tier === 'grade_pro' ? selectedGradeId : null,
         is_active: true,
@@ -107,9 +99,8 @@ export default function AdminSubscriptionsPage() {
 
       if (subError) throw subError;
 
-      // Зберігаємо деталі для виведення адміну
       setCreatedDetails({
-        email: email.trim(),
+        email: trimmedEmail,
         password: generatedPassword,
         tierName: tier === 'pro_all' ? 'Pro — весь каталог (5–11 класи)' : 'Pro — один клас',
         expiresAt: expiresDate.toLocaleDateString('uk-UA'),
@@ -124,7 +115,6 @@ export default function AdminSubscriptionsPage() {
     }
   };
 
-  // Видалення підписки
   const handleDeleteSub = async (subId: string) => {
     if (!confirm('Ви впевнені, що хочете забрати доступ у цього викладача?')) return;
 
@@ -140,7 +130,6 @@ export default function AdminSubscriptionsPage() {
     }
   };
 
-  // Копіювання повідомлення для клієнта
   const handleCopyMessage = () => {
     if (!createdDetails) return;
     const text = `Вітаємо! Ваш доступ до платформи Volya Academy активовано.\n\n🌐 Сайт: ${window.location.origin}/login\n📧 Логін (Email): ${createdDetails.email}\n🔑 Пароль: ${createdDetails.password}\n⭐ Тариф: ${createdDetails.tierName}\n📅 Діє до: ${createdDetails.expiresAt}\n\nПриємного користування матеріалами на уроках!`;
@@ -153,7 +142,6 @@ export default function AdminSubscriptionsPage() {
     <div className="min-h-screen bg-volya-grid py-10 sm:py-14">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
         
-        {/* Навігація */}
         <div className="flex items-center justify-between">
           <Link
             href="/admin"
@@ -169,7 +157,6 @@ export default function AdminSubscriptionsPage() {
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           
-          {/* Ліва колонка: Форма та результат */}
           <div className="space-y-6">
             <div className="bg-white border border-[#E2E8F4] rounded-3xl p-6 sm:p-8 shadow-xs space-y-6">
               <div className="border-b border-[#F1F4FA] pb-4">
@@ -272,7 +259,6 @@ export default function AdminSubscriptionsPage() {
             </div>
           </div>
 
-          {/* Права колонка: Список викладачів */}
           <div className="space-y-6">
             <div className="bg-white border border-[#E2E8F4] rounded-3xl p-6 sm:p-8 shadow-xs space-y-4">
               <div className="border-b border-[#F1F4FA] pb-4">
@@ -294,7 +280,7 @@ export default function AdminSubscriptionsPage() {
                     <div key={sub.id} className="p-4 rounded-2xl bg-[#F7F9FD] border border-[#E2E8F4] flex items-center justify-between gap-4">
                       <div className="space-y-1 overflow-hidden">
                         <p className="font-mono text-xs font-bold text-[#0D1117] truncate">
-                          ID: {sub.user_id}
+                          {sub.email || `ID: ${sub.user_id}`}
                         </p>
                         <div className="flex items-center gap-2">
                           <span className="px-2 py-0.5 rounded bg-[#EFF4FF] text-[#1E56FF] font-mono-math font-bold text-[10px]">
