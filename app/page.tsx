@@ -9,8 +9,7 @@ import {
   Check,
   ShieldCheck,
   LogIn,
-  KeyRound,
-  Target
+  KeyRound
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { MathParticles } from '@/components/ui/MathParticles';
@@ -297,18 +296,23 @@ export default async function HomePage() {
         </div>
 
         <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3 sm:gap-4">
-          {/* Спеціальна картка НМТ */}
+          {/* Спеціальна картка НМТ у фірмовому стилі платформи */}
           <Link
             href="/catalog?grade=nmt"
-            className="group bg-gradient-to-br from-[#0D1117] to-[#1E293B] text-white rounded-2xl p-4 flex flex-col justify-between hover:scale-[1.02] transition-all shadow-sm min-h-[170px]"
+            className="group bg-[#0D1117] hover:bg-[#1E56FF] text-white rounded-2xl p-5 flex flex-col justify-between transition-all duration-200 shadow-sm min-h-[170px]"
           >
             <div>
-              <span className="text-[10px] font-mono-math uppercase tracking-wider text-amber-400 font-bold block">Головне</span>
-              <span className="font-display font-black text-2xl sm:text-3xl block mt-2">🎯 НМТ</span>
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-mono-math uppercase tracking-wider text-amber-400 font-bold">Головне</span>
+                <span className="w-2 h-2 rounded-full bg-[#1E56FF] group-hover:bg-white transition-colors" />
+              </div>
+              <span className="font-display font-black text-2xl sm:text-3xl block mt-3 tracking-tight">
+                НМТ
+              </span>
             </div>
             <div>
-              <p className="text-[11px] text-gray-300 leading-snug mb-2">Тести і тренажери</p>
-              <span className="text-xs font-bold text-[#38BDF8] group-hover:translate-x-1 transition-transform inline-flex items-center gap-1">
+              <p className="text-[11px] text-gray-300 leading-snug mb-3">Тести і тренажери</p>
+              <span className="text-xs font-display font-bold text-[#38BDF8] group-hover:text-white group-hover:translate-x-1 transition-all inline-flex items-center gap-1">
                 Перейти →
               </span>
             </div>
@@ -323,7 +327,7 @@ export default async function HomePage() {
               <Link
                 key={item.num}
                 href={`/catalog?grade=${gradeUrlParam}`}
-                className="group bg-white border border-[#E2E8F4] hover:border-[#1E56FF] rounded-2xl p-4 text-left transition-all duration-200 shadow-2xs hover:shadow-sm flex flex-col justify-between min-h-[170px]"
+                className="group bg-white border border-[#E2E8F4] hover:border-[#1E56FF] rounded-2xl p-5 text-left transition-all duration-200 shadow-2xs hover:shadow-sm flex flex-col justify-between min-h-[170px]"
               >
                 <div>
                   <span className="font-display font-black text-3xl sm:text-4xl text-[#0D1117] block leading-none">
