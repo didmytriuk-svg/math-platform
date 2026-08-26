@@ -36,38 +36,32 @@ function CatalogContent() {
     async function loadCatalogData() {
       setIsLoading(true);
       try {
+        // Завантажуємо матеріали та довідники паралельно
         const [mRes, gRes, tRes, sRes] = await Promise.all([
-          supabase
-            .from('materials')
-            .select(`
-              id,
-              title,
-              slug,
-              description,
-              file_url,
-              external_url,
-              is_interactive,
-              grade_id,
-              material_type_id,
-              section_id,
-              topic_id,
-              created_at,
-              grades ( id, name, "order" ),
-              material_types ( id, name, slug ),
-              sections ( id, name )
-            `)
-            .eq('is_published', true)
-            .order('created_at', { ascending: false }),
-
-          supabase.from('grades').select('id, name, "order"').order('"order"', { ascending: true }),
-          supabase.from('material_types').select('id, name, slug').order('name', { ascending: true }),
-          supabase.from('sections').select('id, name').order('name', { ascending: true }),
+          supabase.from('materials').select('*').eq('is_published', true).order('created_at', { ascending: false }),
+          supabase.from('grades').select('*'),
+          supabase.from('material_types').select('*'),
+          supabase.from('sections').select('*'),
         ]);
 
-        setMaterials(mRes.data || []);
-        setGrades(gRes.data || []);
-        setMaterialTypes(tRes.data || []);
-        setSections(sRes.data || []);
+        const rawMaterials = mRes.data || [];
+        const rawGrades = gRes.data || [];
+        const rawTypes = tRes.data || [];
+        const rawSections = sRes.data || [];
+
+        setGrades(rawGrades);
+        setMaterialTypes(rawTypes);
+        setSections(rawSections);
+
+        // Збагачуємо матеріали зв'язками на фронтенді, щоб уникнути помилок join у Supabase
+        const enriched = rawMaterials.map((m) => ({
+          ...m,
+          grades: rawGrades.find((g: any) => g.id === m.grade_id),
+          material_types: rawTypes.find((t: any) => t.id === m.material_type_id),
+          sections: rawSections.find((s: any) => s.id === m.section_id),
+        }));
+
+        setMaterials(enriched);
       } catch (err) {
         console.error('Catalog load error:', err);
       } finally {
@@ -78,10 +72,6 @@ function CatalogContent() {
     loadCatalogData();
   }, [supabase]);
 
-  const availableSections = useMemo(() => {
-    return sections;
-  }, [sections]);
-
   const filteredMaterials = useMemo(() => {
     return materials.filter((item) => {
       const matchesQuery = searchQuery.trim()
@@ -89,16 +79,8 @@ function CatalogContent() {
           item.description?.toLowerCase().includes(searchQuery.toLowerCase())
         : true;
 
-      const matchesGrade = selectedGrade
-        ? item.grade_id === selectedGrade || item.grades?.id === selectedGrade
-        : true;
-
-      const matchesType = selectedType
-        ? item.material_type_id === selectedType ||
-          item.material_types?.slug === selectedType ||
-          item.material_types?.id === selectedType
-        : true;
-
+      const matchesGrade = selectedGrade ? item.grade_id === selectedGrade : true;
+      const matchesType = selectedType ? item.material_type_id === selectedType : true;
       const matchesSection = selectedSection ? item.section_id === selectedSection : true;
 
       return matchesQuery && matchesGrade && matchesType && matchesSection;
@@ -162,41 +144,25 @@ function CatalogContent() {
             )}
           </div>
 
-          {/* Кнопки вибору класу та НМТ */}
-          <div className="space-y-3 pt-3 border-t border-[#F1F4FA]">
-            <label className="block text-[10px] font-mono-math uppercase tracking-wider font-bold text-[#5E687E]">
-              Паралель / Підготовка
-            </label>
-            <div className="flex flex-wrap gap-2">
-              <button
-                type="button"
-                onClick={() => setSelectedGrade('')}
-                className={`text-xs font-display font-bold px-4 py-2 rounded-xl transition cursor-pointer ${
-                  selectedGrade === ''
-                    ? 'bg-[#0D1117] text-white shadow-xs'
-                    : 'bg-[#F7F9FD] text-[#5E687E] border border-[#E2E8F4] hover:border-[#1E56FF]'
-                }`}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-3 border-t border-[#F1F4FA]">
+            <div>
+              <label className="block text-[10px] font-mono-math uppercase tracking-wider font-bold text-[#5E687E] mb-1.5">
+                Паралель / Клас
+              </label>
+              <select
+                value={selectedGrade}
+                onChange={(e) => setSelectedGrade(e.target.value)}
+                className="w-full text-xs sm:text-sm px-3.5 py-2.5 bg-[#F7F9FD] border border-[#E2E8F4] rounded-xl outline-none focus:border-[#1E56FF] font-medium cursor-pointer"
               >
-                Усі класи
-              </button>
-              {grades.map((g) => (
-                <button
-                  key={g.id}
-                  type="button"
-                  onClick={() => setSelectedGrade(g.id)}
-                  className={`text-xs font-display font-bold px-4 py-2 rounded-xl transition cursor-pointer ${
-                    selectedGrade === g.id
-                      ? 'bg-[#0D1117] text-white shadow-xs'
-                      : 'bg-[#F7F9FD] text-[#5E687E] border border-[#E2E8F4] hover:border-[#1E56FF]'
-                  }`}
-                >
-                  {g.name}
-                </button>
-              ))}
+                <option value="">Усі класи (5–11 та НМТ)</option>
+                {grades.map((g) => (
+                  <option key={g.id} value={g.id}>
+                    {g.name}
+                  </option>
+                ))}
+              </select>
             </div>
-          </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-3 border-t border-[#F1F4FA]">
             <div>
               <label className="block text-[10px] font-mono-math uppercase tracking-wider font-bold text-[#5E687E] mb-1.5">
                 Тип матеріалу
@@ -225,7 +191,7 @@ function CatalogContent() {
                 className="w-full text-xs sm:text-sm px-3.5 py-2.5 bg-[#F7F9FD] border border-[#E2E8F4] rounded-xl outline-none focus:border-[#1E56FF] font-medium cursor-pointer"
               >
                 <option value="">Усі розділи</option>
-                {availableSections.map((s) => (
+                {sections.map((s) => (
                   <option key={s.id} value={s.id}>
                     {s.name}
                   </option>
@@ -319,7 +285,7 @@ function CatalogContent() {
               <button
                 type="button"
                 onClick={resetFilters}
-                className="font-display font-bold text-xs px-5 py-2.5 rounded-xl bg-[#1E56FF] text-white hover:bg-[#0D33B3] transition-colors inline-flex items-center gap-2 cursor-pointer"
+                className="font-display font-bold text-xs px-5 py.5 rounded-xl bg-[#1E56FF] text-white hover:bg-[#0D33B3] transition-colors inline-flex items-center gap-2 cursor-pointer"
               >
                 Показати всі матеріали
               </button>
