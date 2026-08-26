@@ -207,14 +207,11 @@ export default async function HomePage() {
 
   return (
     <div className="bg-volya-grid min-h-screen space-y-16 sm:space-y-24 py-8 sm:py-16 relative">
-      {/* ГЛОБАЛЬНІ ІНТЕРАКТИВНІ СУЗІР'Я */}
       <MathParticles />
 
-      {/* 1. HERO СЕКЦІЯ З КНОПКОЮ ВХОДУ (LOGIN) */}
+      {/* 1. HERO СЕКЦІЯ */}
       <section className="relative max-w-5xl mx-auto px-4 sm:px-6 text-center space-y-8 min-h-[440px] flex flex-col justify-center items-center z-10">
         <div className="space-y-8 w-full">
-          
-          {/* Верхній блок бейджів: База + Кнопка Входу */}
           <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-3">
             <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-[#EFF4FF] border border-[#D5E2FF] text-[#1E56FF] text-xs font-mono-math font-bold shadow-2xs">
               <Sparkles className="w-3.5 h-3.5" />
@@ -239,7 +236,6 @@ export default async function HomePage() {
             </p>
           </div>
 
-          {/* Форма пошуку + Кнопка швидкого входу для вчителя */}
           <div className="max-w-2xl mx-auto w-full space-y-3">
             <form
               action="/catalog"
@@ -276,7 +272,7 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {/* 2. ОБЕРІТЬ КЛАС ТА НМТ */}
+      {/* 2. ОБЕРІТЬ КЛАС ТА НМТ (В ЄДИНОМУ ДИЗАЙНІ) */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6 relative z-10">
         <div className="flex items-center justify-between">
           <div>
@@ -296,26 +292,22 @@ export default async function HomePage() {
         </div>
 
         <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3 sm:gap-4">
-          {/* Спеціальна картка НМТ у фірмовому стилі платформи */}
+          {/* Картка НМТ у загальному стилі карток класів з легким акцентом */}
           <Link
             href="/catalog?grade=nmt"
-            className="group bg-[#0D1117] hover:bg-[#1E56FF] text-white rounded-2xl p-5 flex flex-col justify-between transition-all duration-200 shadow-sm min-h-[170px]"
+            className="group bg-white border-2 border-[#1E56FF] hover:border-[#0D1117] rounded-2xl p-5 text-left transition-all duration-200 shadow-2xs hover:shadow-sm flex flex-col justify-between min-h-[170px]"
           >
             <div>
-              <div className="flex items-center justify-between">
-                <span className="text-[10px] font-mono-math uppercase tracking-wider text-amber-400 font-bold">Головне</span>
-                <span className="w-2 h-2 rounded-full bg-[#1E56FF] group-hover:bg-white transition-colors" />
-              </div>
-              <span className="font-display font-black text-2xl sm:text-3xl block mt-3 tracking-tight">
+              <span className="text-[10px] font-mono-math uppercase tracking-wider font-bold px-2 py-0.5 rounded bg-[#EFF4FF] text-[#1E56FF]">
+                Головне
+              </span>
+              <span className="font-display font-black text-2xl sm:text-3xl text-[#0D1117] block mt-3 tracking-tight">
                 НМТ
               </span>
             </div>
-            <div>
-              <p className="text-[11px] text-gray-300 leading-snug mb-3">Тести і тренажери</p>
-              <span className="text-xs font-display font-bold text-[#38BDF8] group-hover:text-white group-hover:translate-x-1 transition-all inline-flex items-center gap-1">
-                Перейти →
-              </span>
-            </div>
+            <p className="text-[11px] text-[#5E687E] leading-snug">
+              Тести і тренажери
+            </p>
           </Link>
 
           {/* Класи 5–11 */}
