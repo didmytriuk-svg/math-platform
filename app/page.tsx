@@ -272,7 +272,7 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {/* 2. ОБЕРІТЬ КЛАС ТА НМТ (В ЄДИНОМУ ДИЗАЙНІ) */}
+      {/* 2. ОБЕРІТЬ КЛАС ТА НМТ (В ЄДИНОМУ СТИЛІ БЕЗ «ГОЛОВНЕ») */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6 relative z-10">
         <div className="flex items-center justify-between">
           <div>
@@ -292,17 +292,17 @@ export default async function HomePage() {
         </div>
 
         <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3 sm:gap-4">
-          {/* Картка НМТ у загальному стилі карток класів з легким акцентом */}
+          {/* Картка НМТ в абсолютному єдиному стилі з рештою карток */}
           <Link
             href="/catalog?grade=nmt"
             className="group bg-white border-2 border-[#1E56FF] hover:border-[#0D1117] rounded-2xl p-5 text-left transition-all duration-200 shadow-2xs hover:shadow-sm flex flex-col justify-between min-h-[170px]"
           >
             <div>
-              <span className="text-[10px] font-mono-math uppercase tracking-wider font-bold px-2 py-0.5 rounded bg-[#EFF4FF] text-[#1E56FF]">
-                Головне
-              </span>
-              <span className="font-display font-black text-2xl sm:text-3xl text-[#0D1117] block mt-3 tracking-tight">
+              <span className="font-display font-black text-2xl sm:text-3xl text-[#1E56FF] block leading-none tracking-tight">
                 НМТ
+              </span>
+              <span className="text-xs font-display font-bold text-[#0D1117] block mt-1">
+                іспит
               </span>
             </div>
             <p className="text-[11px] text-[#5E687E] leading-snug">
