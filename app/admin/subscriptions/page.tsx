@@ -21,7 +21,6 @@ export default function AdminSubscriptionsPage() {
   const [grades, setGrades] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Поля форми згідно з твоїм макетом
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [contact, setContact] = useState('');
@@ -76,7 +75,6 @@ export default function AdminSubscriptionsPage() {
       const expiresDate = new Date();
       expiresDate.setFullYear(expiresDate.getFullYear() + 1);
 
-      // Створюємо акаунт в Supabase Auth
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: trimmedEmail,
         password: generatedPassword,
@@ -88,7 +86,6 @@ export default function AdminSubscriptionsPage() {
         throw new Error(authError.message);
       }
 
-      // Зберігаємо підписку в базу даних
       const { error: subError } = await supabase.from('user_subscriptions').insert({
         user_id: userId || '00000000-0000-0000-0000-000000000000',
         email: trimmedEmail,
@@ -108,7 +105,6 @@ export default function AdminSubscriptionsPage() {
         expiresAt: expiresDate.toLocaleDateString('uk-UA'),
       });
 
-      // Очищуємо поля форми
       setFullName('');
       setEmail('');
       setContact('');
@@ -162,7 +158,6 @@ export default function AdminSubscriptionsPage() {
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           
-          {/* Ліва колонка: Повна форма додавання */}
           <div className="space-y-6">
             <div className="bg-white border border-[#E2E8F4] rounded-3xl p-6 sm:p-8 shadow-xs space-y-6">
               <div className="border-b border-[#F1F4FA] pb-4">
@@ -222,7 +217,7 @@ export default function AdminSubscriptionsPage() {
 
                 <div>
                   <label className="block font-display font-bold text-xs text-[#0D1117] uppercase tracking-wider mb-2">
-                    Email викладача (на нього відкриється доступ) *
+                    Email викладача *
                   </label>
                   <input
                     type="email"
@@ -236,7 +231,7 @@ export default function AdminSubscriptionsPage() {
 
                 <div>
                   <label className="block font-display font-bold text-xs text-[#0D1117] uppercase tracking-wider mb-2">
-                    Телефон або Telegram (для зв'язку)
+                    Телефон або Telegram
                   </label>
                   <input
                     type="text"
@@ -248,7 +243,6 @@ export default function AdminSubscriptionsPage() {
                 </div>
 
                 <div>
-                   придбаний тарифний план *
                   <label className="block font-display font-bold text-xs text-[#0D1117] uppercase tracking-wider mb-2">
                     Тарифний план *
                   </label>
@@ -293,7 +287,6 @@ export default function AdminSubscriptionsPage() {
             </div>
           </div>
 
-          {/* Права колонка: Список активних викладачів */}
           <div className="space-y-6">
             <div className="bg-white border border-[#E2E8F4] rounded-3xl p-6 sm:p-8 shadow-xs space-y-4">
               <div className="border-b border-[#F1F4FA] pb-4">
