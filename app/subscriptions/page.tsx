@@ -21,8 +21,10 @@ export default function AdminSubscriptionsPage() {
   const [grades, setGrades] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Форма видачі доступу
+  // Поля форми згідно з твоїм макетом
+  const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
+  const [contact, setContact] = useState('');
   const [tier, setTier] = useState('pro_all');
   const [selectedGradeId, setSelectedGradeId] = useState('');
   
@@ -86,10 +88,9 @@ export default function AdminSubscriptionsPage() {
         throw new Error(authError.message);
       }
 
-      // Якщо користувач вже існував і authData.user порожній, спробуємо знайти його ID або зберегти підписку за email
-      // Записуємо підписку в базу даних
+      // Зберігаємо підписку в базу даних
       const { error: subError } = await supabase.from('user_subscriptions').insert({
-        user_id: userId || '00000000-0000-0000-0000-000000000000', // запасний ID якщо юзер вже є
+        user_id: userId || '00000000-0000-0000-0000-000000000000',
         email: trimmedEmail,
         tier: tier,
         grade_id: tier === 'grade_pro' ? selectedGradeId : null,
@@ -100,13 +101,17 @@ export default function AdminSubscriptionsPage() {
       if (subError) throw subError;
 
       setCreatedDetails({
+        fullName: fullName.trim() || 'Викладач',
         email: trimmedEmail,
         password: generatedPassword,
         tierName: tier === 'pro_all' ? 'Pro — весь каталог (5–11 класи)' : 'Pro — один клас',
         expiresAt: expiresDate.toLocaleDateString('uk-UA'),
       });
 
+      // Очищуємо поля форми
+      setFullName('');
       setEmail('');
+      setContact('');
       loadData();
     } catch (err: any) {
       setErrorMsg(err.message || 'Сталася помилка при збереженні підписки.');
@@ -132,7 +137,7 @@ export default function AdminSubscriptionsPage() {
 
   const handleCopyMessage = () => {
     if (!createdDetails) return;
-    const text = `Вітаємо! Ваш доступ до платформи Volya Academy активовано.\n\n🌐 Сайт: ${window.location.origin}/login\n📧 Логін (Email): ${createdDetails.email}\n🔑 Пароль: ${createdDetails.password}\n⭐ Тариф: ${createdDetails.tierName}\n📅 Діє до: ${createdDetails.expiresAt}\n\nПриємного користування матеріалами на уроках!`;
+    const text = `Вітаємо, ${createdDetails.fullName}!\nВаш доступ до платформи Volya Academy активовано.\n\n🌐 Сайт: ${window.location.origin}/login\n📧 Логін (Email): ${createdDetails.email}\n🔑 Пароль: ${createdDetails.password}\n⭐ Тариф: ${createdDetails.tierName}\n📅 Діє до: ${createdDetails.expiresAt}\n\nПриємного користування матеріалами на уроках!`;
     navigator.clipboard.writeText(text);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
@@ -157,6 +162,7 @@ export default function AdminSubscriptionsPage() {
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           
+          {/* Ліва колонка: Повна форма додавання */}
           <div className="space-y-6">
             <div className="bg-white border border-[#E2E8F4] rounded-3xl p-6 sm:p-8 shadow-xs space-y-6">
               <div className="border-b border-[#F1F4FA] pb-4">
@@ -164,7 +170,7 @@ export default function AdminSubscriptionsPage() {
                   Видати або оновити доступ
                 </h2>
                 <p className="text-xs text-[#5E687E] mt-0.5">
-                  Після підтвердження оплати введіть пошту викладача
+                  Заповніть дані після підтвердження оплати на карту
                 </p>
               </div>
 
@@ -183,6 +189,7 @@ export default function AdminSubscriptionsPage() {
                   </div>
                   <div className="p-4 rounded-xl bg-white border border-[#E2E8F4] text-xs space-y-1.5 font-mono text-[#0D1117]">
                     <p>🌐 <strong>Сайт:</strong> {typeof window !== 'undefined' ? window.location.origin : ''}/login</p>
+                    <p>👤 <strong>Ім'я:</strong> {createdDetails.fullName}</p>
                     <p>📧 <strong>Логін:</strong> {createdDetails.email}</p>
                     <p>🔑 <strong>Пароль:</strong> {createdDetails.password}</p>
                     <p>⭐ <strong>Тариф:</strong> {createdDetails.tierName}</p>
@@ -202,19 +209,46 @@ export default function AdminSubscriptionsPage() {
               <form onSubmit={handleCreateSubscription} className="space-y-4">
                 <div>
                   <label className="block font-display font-bold text-xs text-[#0D1117] uppercase tracking-wider mb-2">
-                    Email викладача *
+                    Ваше ім'я та прізвище
+                  </label>
+                  <input
+                    type="text"
+                    value={fullName}
+                    onChange={(e) => setFullName(e.target.value)}
+                    placeholder="Оксана Коваленко"
+                    className="w-full text-sm bg-[#F7F9FD] border border-[#E2E8F4] text-[#0D1117] rounded-xl px-4 py-3 outline-none focus:border-[#1E56FF]"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-display font-bold text-xs text-[#0D1117] uppercase tracking-wider mb-2">
+                    Email викладача (на нього відкриється доступ) *
                   </label>
                   <input
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    placeholder="teacher@gmail.com"
+                    placeholder="teacher@school.edu.ua"
                     className="w-full text-sm bg-[#F7F9FD] border border-[#E2E8F4] text-[#0D1117] rounded-xl px-4 py-3 outline-none focus:border-[#1E56FF]"
                     required
                   />
                 </div>
 
                 <div>
+                  <label className="block font-display font-bold text-xs text-[#0D1117] uppercase tracking-wider mb-2">
+                    Телефон або Telegram (для зв'язку)
+                  </label>
+                  <input
+                    type="text"
+                    value={contact}
+                    onChange={(e) => setContact(e.target.value)}
+                    placeholder="@username або +380..."
+                    className="w-full text-sm bg-[#F7F9FD] border border-[#E2E8F4] text-[#0D1117] rounded-xl px-4 py-3 outline-none focus:border-[#1E56FF]"
+                  />
+                </div>
+
+                <div>
+                   придбаний тарифний план *
                   <label className="block font-display font-bold text-xs text-[#0D1117] uppercase tracking-wider mb-2">
                     Тарифний план *
                   </label>
@@ -223,8 +257,8 @@ export default function AdminSubscriptionsPage() {
                     onChange={(e) => setTier(e.target.value)}
                     className="w-full text-sm bg-[#F7F9FD] border border-[#E2E8F4] text-[#0D1117] rounded-xl px-4 py-3 outline-none focus:border-[#1E56FF] cursor-pointer"
                   >
-                    <option value="pro_all">Pro — Весь каталог (All-Access)</option>
-                    <option value="grade_pro">Pro — Один клас</option>
+                    <option value="pro_all">Pro — Весь каталог (890 грн)</option>
+                    <option value="grade_pro">Pro — Один клас (290 грн)</option>
                   </select>
                 </div>
 
@@ -253,12 +287,13 @@ export default function AdminSubscriptionsPage() {
                   className="w-full font-display font-bold text-xs sm:text-sm py-3.5 bg-[#1E56FF] hover:bg-[#0D33B3] text-white rounded-xl transition-all shadow-xs inline-flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 mt-2"
                 >
                   {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
-                  Створити доступ та згенерувати пароль
+                  Підтвердити оплату та видати доступ
                 </button>
               </form>
             </div>
           </div>
 
+          {/* Права колонка: Список активних викладачів */}
           <div className="space-y-6">
             <div className="bg-white border border-[#E2E8F4] rounded-3xl p-6 sm:p-8 shadow-xs space-y-4">
               <div className="border-b border-[#F1F4FA] pb-4">
@@ -266,7 +301,7 @@ export default function AdminSubscriptionsPage() {
                   Список активних викладачів ({subscriptions.length})
                 </h3>
                 <p className="text-xs text-[#5E687E] mt-0.5">
-                  Користувачі, які мають активний доступ до матеріалів
+                  Користувачі, яким надано доступ до матеріалів
                 </p>
               </div>
 
