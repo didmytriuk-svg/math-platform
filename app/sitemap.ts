@@ -1,15 +1,14 @@
 import { MetadataRoute } from 'next';
 import { createClient } from '@supabase/supabase-js';
 
-// Створюємо клієнт для отримання даних з бази для карти сайту
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://my-platform.vercel.app';
+  const baseUrl = 'https://www.volya-academy.xyz';
 
-  // Базові статичні сторінки
+  // Статичні сторінки платформи
   const staticPages: MetadataRoute.Sitemap = [
     {
       url: baseUrl,
@@ -25,7 +24,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     },
   ];
 
-  // Динамічні сторінки матеріалів з бази даних
+  // Динамічні сторінки матеріалів із бази даних Supabase
   let materialPages: MetadataRoute.Sitemap = [];
   try {
     const { data: materials } = await supabase
