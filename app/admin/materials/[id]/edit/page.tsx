@@ -54,6 +54,7 @@ export default function EditMaterialPage() {
     async function loadData() {
       try {
         setIsLoading(true);
+
         const [gRes, tRes, sRes, topRes, subRes, matRes, filesRes] = await Promise.all([
           supabase.from('grades').select('id, name, number').order('number'),
           supabase.from('material_types').select('id, name, slug'),
@@ -91,6 +92,7 @@ export default function EditMaterialPage() {
           subjects: subRes.data || [],
         });
       } catch (err: any) {
+        console.error('Error loading edit page data:', err);
         setErrorMsg(err.message || 'Помилка завантаження даних матеріалу.');
       } finally {
         setIsLoading(false);
@@ -150,7 +152,6 @@ export default function EditMaterialPage() {
     setIsSubmitting(true);
 
     try {
-      // 1. Оновлюємо основний запис матеріалу
       const { error: updateError } = await supabase
         .from('materials')
         .update({
@@ -171,7 +172,6 @@ export default function EditMaterialPage() {
 
       if (updateError) throw updateError;
 
-      // 2. Завантажуємо нові додані файли
       if (newFiles.length > 0) {
         for (const file of newFiles) {
           const fileExt = file.name.split('.').pop();
@@ -183,7 +183,6 @@ export default function EditMaterialPage() {
             .upload(filePath, file, { cacheControl: '3600', upsert: false });
 
           if (uploadError) {
-            console.error('Storage upload error:', uploadError);
             throw new Error(`Помилка завантаження файлу ${file.name}: ${uploadError.message}`);
           }
 
@@ -197,14 +196,13 @@ export default function EditMaterialPage() {
           });
 
           if (insertFileErr) {
-            console.error('DB insert file error:', insertFileErr);
             throw new Error(`Помилка збереження файлу в базі: ${insertFileErr.message}`);
           }
         }
       }
 
       setSuccessMsg('Матеріал та файли успішно оновлено!');
-      setNewFiles([]);
+      setNewFiles([]); // Виправлено: передано порожній масив замість пустого виклику
       
       const { data: refreshedFiles } = await supabase.from('material_files').select('*').eq('material_id', id);
       setExistingFiles(refreshedFiles || []);
@@ -309,7 +307,6 @@ export default function EditMaterialPage() {
               />
             </div>
 
-            {/* Вибір таксономії (Предмет, Клас, Розділ, Тема, Тип) */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="block font-display font-bold text-xs text-[#0D1117] uppercase tracking-wider mb-2">
