@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import Image from 'next/image';
 import { Sparkles, ArrowRight, LogOut, LayoutDashboard, BookOpen } from 'lucide-react';
 import { useAuth } from '@/lib/context/AuthContext';
 
@@ -12,8 +13,14 @@ export function Header() {
       <div className="max-w-7xl mx-auto flex h-16 items-center justify-between px-4 sm:px-6 lg:px-8">
         {/* Логотип */}
         <Link href="/" className="flex items-center gap-3 group">
-          <div className="w-8 h-8 rounded-full bg-[#1E56FF] flex items-center justify-center text-white font-display font-black text-sm shadow-xs transition-transform group-hover:scale-105">
-            V
+          <div className="relative w-9 h-9 flex items-center justify-center transition-transform group-hover:scale-105">
+            <Image
+              src="/favicon.png" // Шлях до вашого зображення у папці public
+              alt="VOLYA.ACADEMY Logo"
+              fill
+              className="object-contain"
+              priority
+            />
           </div>
           <div>
             <span className="font-display font-black text-base sm:text-lg tracking-tight text-[#0D1117] block leading-none">
