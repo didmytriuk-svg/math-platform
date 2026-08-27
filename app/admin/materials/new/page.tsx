@@ -199,10 +199,11 @@ export default function NewMaterialPage() {
         }
       }
 
-      setSuccessMsg('Матеріал та всі файли успішно додано!');
+      setSuccessMsg('Матеріал успішно створено!');
       setTimeout(() => {
-        router.push('/admin');
+        router.push('/admin/materials');
       }, 1200);
+  
     } catch (err: any) {
       setErrorMsg(err.message || 'Сталася помилка під час створення матеріалу.');
       setIsSubmitting(false);
