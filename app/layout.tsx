@@ -1,50 +1,29 @@
-import type { Metadata } from 'next';
-import { Inter, Plus_Jakarta_Sans, JetBrains_Mono } from 'next/font/google';
-import './globals.css';
-import { Header } from '@/components/layout/Header';
-import { Footer } from '@/components/layout/Footer';
-
-const inter = Inter({
-  subsets: ['latin', 'cyrillic'],
-  variable: '--font-inter',
-  display: 'swap',
-});
-
-const plusJakartaSans = Plus_Jakarta_Sans({
-  subsets: ['latin'],
-  variable: '--font-display',
-  display: 'swap',
-});
-
-const jetbrainsMono = JetBrains_Mono({
-  subsets: ['latin'],
-  variable: '--font-mono-math',
-  display: 'swap',
-});
+import type { Metadata } from "next";
+import "./globals.css";
 
 export const metadata: Metadata = {
-  title: 'VOLYA ACADEMY — Матеріали для викладачів математики 5–11 класів',
-  description:
-    'Готові презентації, інтерактивні HTML5-ігри, самостійні та контрольні роботи з математики для вчителів і репетиторів.',
-  icons: {
-    icon: '/icon.png',
+  title: "Платформа матеріалів для викладачів математики",
+  description: "Готові презентації, ігри, самостійні та контрольні роботи для викладання математики 5–11 класів.",
+  metadataBase: new URL('https://my-platform.vercel.app'),
+  openGraph: {
+    title: "Платформа матеріалів для викладачів математики",
+    description: "Готові презентації, ігри, самостійні та контрольні роботи для викладання математики.",
+    url: 'https://my-platform.vercel.app',
+    siteName: 'Овітня платформа',
+    locale: 'uk_UA',
+    type: 'website',
   },
 };
 
 export default function RootLayout({
   children,
-}: Readonly<{
+}: {
   children: React.ReactNode;
-}>) {
+}) {
   return (
-    <html
-      lang="uk"
-      className={`${inter.variable} ${plusJakartaSans.variable} ${jetbrainsMono.variable}`}
-    >
-      <body className="min-h-screen bg-[#F7F9FD] text-[#0D1117] antialiased flex flex-col font-sans selection:bg-[#1E56FF] selection:text-white">
-        <Header />
-        <main className="grow">{children}</main>
-        <Footer />
+    <html lang="uk">
+      <body className="antialiased min-h-screen bg-white text-zinc-900">
+        {children}
       </body>
     </html>
   );
