@@ -1,15 +1,13 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter, useParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, Upload, CheckCircle2, AlertCircle, Loader2, BookOpen, X, FileText, Trash2 } from 'lucide-react';
+import { ArrowLeft, Upload, CheckCircle2, AlertCircle, Loader2, BookOpen, X, FileText } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 
-export default function EditMaterialPage() {
+export default function NewMaterialPage() {
   const router = useRouter();
-  const params = useParams();
-  const id = params?.id as string;
   const supabase = createClient();
 
   const [taxonomy, setTaxonomy] = useState<{
@@ -45,43 +43,19 @@ export default function EditMaterialPage() {
   const [isPremium, setIsPremium] = useState(false);
 
   // Файли
-  const [existingFiles, setExistingFiles] = useState<any[]>([]);
   const [newFiles, setNewFiles] = useState<File[]>([]);
 
   useEffect(() => {
-    if (!id) return;
-
-    async function loadData() {
+    async function loadTaxonomy() {
       try {
         setIsLoading(true);
-        const [gRes, tRes, sRes, topRes, subRes, matRes, filesRes] = await Promise.all([
+        const [gRes, tRes, sRes, topRes, subRes] = await Promise.all([
           supabase.from('grades').select('*').order('name'),
           supabase.from('material_types').select('*'),
           supabase.from('sections').select('*'),
           supabase.from('topics').select('*'),
           supabase.from('subjects').select('*'),
-          supabase.from('materials').select('*').eq('id', id).single(),
-          supabase.from('material_files').select('*').eq('material_id', id),
         ]);
-
-        if (matRes.error || !matRes.data) {
-          throw new Error('Матеріал не знайдено.');
-        }
-
-        const mat = matRes.data;
-        setTitle(mat.title || '');
-        setDescription(mat.description || '');
-        setContent(mat.content || '');
-        setSelectedSubject(mat.subject_id || '');
-        setSelectedGrade(mat.grade_id || '');
-        setSelectedSection(mat.section_id || '');
-        setSelectedTopic(mat.topic_id || '');
-        setSelectedType(mat.material_type_id || '');
-        setExternalUrl(mat.external_url || '');
-        setIsInteractive(Boolean(mat.is_interactive));
-        setIsPremium(Boolean(mat.is_premium));
-
-        setExistingFiles(filesRes.data || []);
 
         setTaxonomy({
           grades: gRes.data || [],
@@ -91,14 +65,14 @@ export default function EditMaterialPage() {
           subjects: subRes.data || [],
         });
       } catch (err: any) {
-        setErrorMsg(err.message || 'Помилка завантаження даних матеріалу.');
+        setErrorMsg('Помилка завантаження довідників.');
       } finally {
         setIsLoading(false);
       }
     }
 
-    loadData();
-  }, [id, supabase]);
+    loadTaxonomy();
+  }, [supabase]);
 
   const availableSections = selectedGrade
     ? taxonomy.sections.filter((s) => s.grade_id === selectedGrade)
@@ -117,16 +91,6 @@ export default function EditMaterialPage() {
 
   const removeNewFile = (index: number) => {
     setNewFiles((prev) => prev.filter((_, i) => i !== index));
-  };
-
-  const deleteExistingFile = async (fileId: string) => {
-    try {
-      const { error } = await supabase.from('material_files').delete().eq('id', fileId);
-      if (error) throw error;
-      setExistingFiles((prev) => prev.filter((f) => f.id !== fileId));
-    } catch (err: any) {
-      alert(`Не вдалося видалити файл: ${err.message}`);
-    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -150,9 +114,10 @@ export default function EditMaterialPage() {
     setIsSubmitting(true);
 
     try {
-      const { error: updateError } = await supabase
+      // 1. Створюємо запис матеріалу в таблиці materials
+      const { data: materialData, error: materialError } = await supabase
         .from('materials')
-        .update({
+        .insert({
           title: title.trim(),
           description: description.trim() || null,
           content: content.trim() || null,
@@ -164,12 +129,15 @@ export default function EditMaterialPage() {
           external_url: externalUrl.trim() || null,
           is_interactive: isInteractive,
           is_premium: isPremium,
-          updated_at: new Date().toISOString(),
+          is_published: true,
         })
-        .eq('id', id);
+        .select()
+        .single();
 
-      if (updateError) throw updateError;
+      if (materialError) throw materialError;
+      const newMaterialId = materialData.id;
 
+      // 2. Завантажуємо прикріплені файли у сховище та таблицю material_files
       if (newFiles.length > 0) {
         for (const file of newFiles) {
           const fileExt = file.name.split('.').pop();
@@ -187,7 +155,7 @@ export default function EditMaterialPage() {
           const { data: publicUrlData } = supabase.storage.from('materials').getPublicUrl(filePath);
 
           const { error: insertFileErr } = await supabase.from('material_files').insert({
-            material_id: id,
+            material_id: newMaterialId,
             file_url: publicUrlData.publicUrl,
             file_name: file.name,
             file_size: file.size,
@@ -199,17 +167,12 @@ export default function EditMaterialPage() {
         }
       }
 
-      setSuccessMsg('Матеріал та файли успішно оновлено!');
-      setNewFiles([]);
-      
-      const { data: refreshedFiles } = await supabase.from('material_files').select('*').eq('material_id', id);
-      setExistingFiles(refreshedFiles || []);
-
+      setSuccessMsg('Матеріал успішно створено!');
       setTimeout(() => {
         router.push('/admin');
       }, 1200);
     } catch (err: any) {
-      setErrorMsg(err.message || 'Помилка при збереженні змін.');
+      setErrorMsg(err.message || 'Помилка при створенні матеріалу.');
     } finally {
       setIsSubmitting(false);
     }
@@ -220,7 +183,7 @@ export default function EditMaterialPage() {
       <div className="min-h-screen bg-volya-grid flex items-center justify-center">
         <div className="flex items-center gap-2 font-display font-bold text-sm text-[#0D1117]">
           <Loader2 className="w-5 h-5 animate-spin text-[#1E56FF]" />
-          Завантаження даних матеріалу...
+          Завантаження форми...
         </div>
       </div>
     );
@@ -238,17 +201,17 @@ export default function EditMaterialPage() {
             Назад до адмін-панелі
           </Link>
           <span className="text-xs font-mono-math font-semibold text-[#1E56FF] bg-[#EFF4FF] border border-[#D5E2FF] px-3 py-1 rounded-lg">
-            Редагування матеріалу
+            Додавання матеріалу
           </span>
         </div>
 
         <div className="bg-white border border-[#E2E8F4] rounded-3xl p-6 sm:p-10 shadow-xs">
           <div className="mb-8 pb-6 border-b border-[#F1F4FA]">
             <h1 className="font-display font-black text-2xl sm:text-3xl text-[#0D1117]">
-              Редагувати навчальний матеріал
+              Додати новий навчальний матеріал
             </h1>
             <p className="text-xs sm:text-sm text-[#5E687E] mt-1">
-              Змініть параметри, конспект, керуйте файлами або оновіть преміум-доступ
+              Заповніть параметри розробки, додайте конспект та прикріпіть файли
             </p>
           </div>
 
@@ -275,6 +238,7 @@ export default function EditMaterialPage() {
                 type="text"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
+                placeholder="Наприклад: Конспект уроку. Лінійні рівняння"
                 className="w-full text-sm bg-[#F7F9FD] border border-[#E2E8F4] text-[#0D1117] rounded-xl px-4 py-3 outline-none focus:border-[#1E56FF] focus:bg-white transition"
                 required
               />
@@ -288,6 +252,7 @@ export default function EditMaterialPage() {
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 rows={2}
+                placeholder="Короткий анонс розробки для каталогу..."
                 className="w-full text-sm bg-[#F7F9FD] border border-[#E2E8F4] text-[#0D1117] rounded-xl p-4 outline-none focus:border-[#1E56FF] focus:bg-white transition resize-y"
               />
             </div>
@@ -301,11 +266,12 @@ export default function EditMaterialPage() {
                 value={content}
                 onChange={(e) => setContent(e.target.value)}
                 rows={6}
+                placeholder="Повний текст конспекту, вказівок або завдань для вчителя..."
                 className="w-full text-sm font-sans bg-white border border-[#E2E8F4] text-[#0D1117] rounded-xl p-4 outline-none focus:border-[#1E56FF] transition resize-y"
               />
             </div>
 
-            {/* Сітка вибору таксономії (повністю аналогічна сторінці створення) */}
+            {/* Сітка таксономії */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="block font-display font-bold text-xs text-[#0D1117] uppercase tracking-wider mb-2">
@@ -415,30 +381,6 @@ export default function EditMaterialPage() {
                 Прикріплені файли
               </label>
 
-              {existingFiles.length > 0 && (
-                <div className="space-y-2">
-                  <p className="text-xs text-[#5E687E]">Вже завантажені файли:</p>
-                  {existingFiles.map((f) => (
-                    <div key={f.id} className="flex items-center justify-between bg-slate-50 border border-[#E2E8F4] p-3 rounded-xl text-xs">
-                      <div className="flex items-center gap-2 overflow-hidden">
-                        <FileText className="w-4 h-4 text-[#1E56FF] shrink-0" />
-                        <a href={f.file_url} target="_blank" rel="noopener noreferrer" className="truncate font-medium text-[#1E56FF] hover:underline">
-                          {f.file_name || 'Файл документа'}
-                        </a>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => deleteExistingFile(f.id)}
-                        className="text-red-500 hover:text-red-700 p-1 cursor-pointer flex items-center gap-1"
-                        title="Видалити файл"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-
               <div className="relative border-2 border-dashed border-[#E2E8F4] hover:border-[#1E56FF] rounded-2xl p-6 text-center transition-colors bg-[#F7F9FD]">
                 <input
                   type="file"
@@ -452,18 +394,21 @@ export default function EditMaterialPage() {
                     <Upload className="w-5 h-5" />
                   </div>
                   <p className="font-display font-bold text-xs sm:text-sm text-[#0D1117]">
-                    Додати нові файли (натисніть або перетягніть)
+                    Додати файли (натисніть або перетягніть)
                   </p>
                 </div>
               </div>
 
               {newFiles.length > 0 && (
                 <div className="space-y-2">
-                  <p className="text-xs font-bold text-[#0D1117]">Нові файли до завантаження ({newFiles.length}):</p>
+                  <p className="text-xs font-bold text-[#0D1117]">Обрані файли ({newFiles.length}):</p>
                   {newFiles.map((f, idx) => (
                     <div key={idx} className="flex items-center justify-between bg-white border border-[#E2E8F4] p-3 rounded-xl text-xs">
-                      <span className="truncate font-medium">{f.name}</span>
-                      <button type="button" onClick={() => removeNewFile(idx)} className="text-red-500 cursor-pointer">
+                      <div className="flex items-center gap-2 overflow-hidden">
+                        <FileText className="w-4 h-4 text-[#1E56FF] shrink-0" />
+                        <span className="truncate font-medium">{f.name}</span>
+                      </div>
+                      <button type="button" onClick={() => removeNewFile(idx)} className="text-red-500 cursor-pointer p-1">
                         <X className="w-4 h-4" />
                       </button>
                     </div>
@@ -480,6 +425,7 @@ export default function EditMaterialPage() {
                 type="url"
                 value={externalUrl}
                 onChange={(e) => setExternalUrl(e.target.value)}
+                placeholder="https://..."
                 className="w-full text-sm bg-[#F7F9FD] border border-[#E2E8F4] text-[#0D1117] rounded-xl px-4 py-3 outline-none focus:border-[#1E56FF] transition"
               />
             </div>
@@ -522,10 +468,10 @@ export default function EditMaterialPage() {
                 {isSubmitting ? (
                   <>
                     <Loader2 className="w-4 h-4 animate-spin" />
-                    Збереження змін...
+                    Опублікування...
                   </>
                 ) : (
-                  'Зберегти зміни'
+                  'Опублікувати матеріал'
                 )}
               </button>
             </div>
