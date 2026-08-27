@@ -15,7 +15,7 @@ export function Header() {
         <Link href="/" className="flex items-center gap-3 group">
           <div className="relative w-9 h-9 flex items-center justify-center transition-transform group-hover:scale-105">
             <Image
-              src="/favicon.png" // Шлях до вашого зображення у папці public
+              src="/favicon.png"
               alt="VOLYA.ACADEMY Logo"
               fill
               className="object-contain"
