@@ -1,23 +1,31 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, use } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, Upload, CheckCircle2, AlertCircle, Loader2, BookOpen, X, FileText } from 'lucide-react';
+import { ArrowLeft, Upload, CheckCircle2, AlertCircle, Loader2, BookOpen, X, FileText, Trash2 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 
-export default function NewMaterialPage() {
+interface ExistingFile {
+  id: string;
+  file_url: string;
+  file_name: string;
+  file_size?: number;
+}
+
+export default function EditMaterialPage({ params }: { params: Promise<{ id: string }> }) {
+  const resolvedParams = use(params);
+  const materialId = resolvedParams.id;
+
   const router = useRouter();
   const supabase = createClient();
 
   const [taxonomy, setTaxonomy] = useState<{
-    subjects: any[];
     grades: any[];
     sections: any[];
     topics: any[];
     materialTypes: any[];
   }>({
-    subjects: [],
     grades: [],
     sections: [],
     topics: [],
@@ -33,7 +41,6 @@ export default function NewMaterialPage() {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [content, setContent] = useState('');
-  const [selectedSubject, setSelectedSubject] = useState('');
   const [selectedGrade, setSelectedGrade] = useState('');
   const [selectedSection, setSelectedSection] = useState('');
   const [selectedTopic, setSelectedTopic] = useState('');
@@ -41,38 +48,61 @@ export default function NewMaterialPage() {
   const [externalUrl, setExternalUrl] = useState('');
   const [isInteractive, setIsInteractive] = useState(false);
   const [isPremium, setIsPremium] = useState(false);
+  const [previewUrl, setPreviewUrl] = useState('');
 
   // Файли
+  const [existingFiles, setExistingFiles] = useState<ExistingFile[]>([]);
+  const [filesToDelete, setFilesToDelete] = useState<string[]>([]);
   const [newFiles, setNewFiles] = useState<File[]>([]);
 
   useEffect(() => {
-    async function loadTaxonomy() {
+    async function loadData() {
       try {
         setIsLoading(true);
-        const [gRes, tRes, sRes, topRes, subRes] = await Promise.all([
-          supabase.from('grades').select('*').order('name'),
+
+        // Паралельно завантажуємо довідники та поточний матеріал із файлами
+        const [gRes, tRes, sRes, topRes, materialRes, filesRes] = await Promise.all([
+          supabase.from('grades').select('*').order('order'),
           supabase.from('material_types').select('*'),
           supabase.from('sections').select('*'),
           supabase.from('topics').select('*'),
-          supabase.from('subjects').select('*'),
+          supabase.from('materials').select('*').eq('id', materialId).single(),
+          supabase.from('material_files').select('*').eq('material_id', materialId),
         ]);
+
+        if (materialRes.error) throw materialRes.error;
+        const mat = materialRes.data;
 
         setTaxonomy({
           grades: gRes.data || [],
           materialTypes: tRes.data || [],
           sections: sRes.data || [],
           topics: topRes.data || [],
-          subjects: subRes.data || [],
         });
+
+        // Заповнюємо форму наявними даними
+        setTitle(mat.title || '');
+        setDescription(mat.description || '');
+        setContent(mat.content || '');
+        setSelectedGrade(mat.grade_id || '');
+        setSelectedSection(mat.section_id || '');
+        setSelectedTopic(mat.topic_id || '');
+        setSelectedType(mat.material_type_id || '');
+        setExternalUrl(mat.external_url || '');
+        setIsInteractive(mat.is_interactive || false);
+        setIsPremium(mat.is_premium || false);
+        setPreviewUrl(mat.preview_url || '');
+
+        setExistingFiles(filesRes.data || []);
       } catch (err: any) {
-        setErrorMsg('Помилка завантаження довідників.');
+        setErrorMsg('Помилка завантаження матеріалу.');
       } finally {
         setIsLoading(false);
       }
     }
 
-    loadTaxonomy();
-  }, [supabase]);
+    loadData();
+  }, [supabase, materialId]);
 
   const availableSections = selectedGrade
     ? taxonomy.sections.filter((s) => s.grade_id === selectedGrade)
@@ -91,6 +121,11 @@ export default function NewMaterialPage() {
 
   const removeNewFile = (index: number) => {
     setNewFiles((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const removeExistingFile = (fileId: string) => {
+    setFilesToDelete((prev) => [...prev, fileId]);
+    setExistingFiles((prev) => prev.filter((f) => f.id !== fileId));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -114,14 +149,13 @@ export default function NewMaterialPage() {
     setIsSubmitting(true);
 
     try {
-      // 1. Створюємо запис матеріалу в таблиці materials
-      const { data: materialData, error: materialError } = await supabase
+      // 1. Оновлюємо дані матеріалу в таблиці materials (без subject_id)
+      const { error: updateError } = await supabase
         .from('materials')
-        .insert({
+        .update({
           title: title.trim(),
           description: description.trim() || null,
           content: content.trim() || null,
-          subject_id: selectedSubject || null,
           grade_id: selectedGrade,
           section_id: selectedSection || null,
           topic_id: selectedTopic || null,
@@ -129,15 +163,23 @@ export default function NewMaterialPage() {
           external_url: externalUrl.trim() || null,
           is_interactive: isInteractive,
           is_premium: isPremium,
-          is_published: true,
+          updated_at: new Date().toISOString(),
         })
-        .select()
-        .single();
+        .eq('id', materialId);
 
-      if (materialError) throw materialError;
-      const newMaterialId = materialData.id;
+      if (updateError) throw updateError;
 
-      // 2. Завантажуємо прикріплені файли у сховище та таблицю material_files
+      // 2. Видаляємо файли, які адміністратор позначив на видалення
+      if (filesToDelete.length > 0) {
+        const { error: deleteFilesErr } = await supabase
+          .from('material_files')
+          .delete()
+          .in('id', filesToDelete);
+
+        if (deleteFilesErr) throw deleteFilesErr;
+      }
+
+      // 3. Завантажуємо нові прикріплені файли (якщо вони є)
       if (newFiles.length > 0) {
         for (const file of newFiles) {
           const fileExt = file.name.split('.').pop();
@@ -155,7 +197,7 @@ export default function NewMaterialPage() {
           const { data: publicUrlData } = supabase.storage.from('materials').getPublicUrl(filePath);
 
           const { error: insertFileErr } = await supabase.from('material_files').insert({
-            material_id: newMaterialId,
+            material_id: materialId,
             file_url: publicUrlData.publicUrl,
             file_name: file.name,
             file_size: file.size,
@@ -167,12 +209,12 @@ export default function NewMaterialPage() {
         }
       }
 
-      setSuccessMsg('Матеріал успішно створено!');
+      setSuccessMsg('Матеріал успішно оновлено!');
       setTimeout(() => {
         router.push('/admin');
       }, 1200);
     } catch (err: any) {
-      setErrorMsg(err.message || 'Помилка при створенні матеріалу.');
+      setErrorMsg(err.message || 'Помилка при оновленні матеріалу.');
     } finally {
       setIsSubmitting(false);
     }
@@ -183,7 +225,7 @@ export default function NewMaterialPage() {
       <div className="min-h-screen bg-volya-grid flex items-center justify-center">
         <div className="flex items-center gap-2 font-display font-bold text-sm text-[#0D1117]">
           <Loader2 className="w-5 h-5 animate-spin text-[#1E56FF]" />
-          Завантаження форми...
+          Завантаження матеріалу...
         </div>
       </div>
     );
@@ -201,17 +243,17 @@ export default function NewMaterialPage() {
             Назад до адмін-панелі
           </Link>
           <span className="text-xs font-mono-math font-semibold text-[#1E56FF] bg-[#EFF4FF] border border-[#D5E2FF] px-3 py-1 rounded-lg">
-            Додавання матеріалу
+            Редагування матеріалу
           </span>
         </div>
 
         <div className="bg-white border border-[#E2E8F4] rounded-3xl p-6 sm:p-10 shadow-xs">
           <div className="mb-8 pb-6 border-b border-[#F1F4FA]">
             <h1 className="font-display font-black text-2xl sm:text-3xl text-[#0D1117]">
-              Додати новий навчальний матеріал
+              Редагувати навчальний матеріал
             </h1>
             <p className="text-xs sm:text-sm text-[#5E687E] mt-1">
-              Заповніть параметри розробки, додайте конспект та прикріпіть файли
+              Змініть параметри, конспект або керуйте файлами розробки
             </p>
           </div>
 
@@ -271,27 +313,9 @@ export default function NewMaterialPage() {
               />
             </div>
 
-            {/* Сітка таксономії */}
+            {/* Сітка таксономії (без предмета, на всю ширину або 2 колонки) */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="block font-display font-bold text-xs text-[#0D1117] uppercase tracking-wider mb-2">
-                  Предмет
-                </label>
-                <select
-                  value={selectedSubject}
-                  onChange={(e) => setSelectedSubject(e.target.value)}
-                  className="w-full text-sm bg-[#F7F9FD] border border-[#E2E8F4] text-[#0D1117] rounded-xl px-4 py-3 outline-none focus:border-[#1E56FF] cursor-pointer font-medium"
-                >
-                  <option value="">-- Оберіть предмет --</option>
-                  {taxonomy.subjects.map((sub) => (
-                    <option key={sub.id} value={sub.id}>
-                      {sub.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
+              <div className="sm:col-span-2">
                 <label className="block font-display font-bold text-xs text-[#0D1117] uppercase tracking-wider mb-2">
                   Клас *
                 </label>
@@ -381,6 +405,32 @@ export default function NewMaterialPage() {
                 Прикріплені файли
               </label>
 
+              {/* Наявні файли */}
+              {existingFiles.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-xs font-bold text-[#5E687E]">Вже завантажені файли:</p>
+                  {existingFiles.map((file) => (
+                    <div key={file.id} className="flex items-center justify-between bg-white border border-[#E2E8F4] p-3 rounded-xl text-xs">
+                      <div className="flex items-center gap-2 overflow-hidden">
+                        <FileText className="w-4 h-4 text-[#1E56FF] shrink-0" />
+                        <a href={file.file_url} target="_blank" rel="noopener noreferrer" className="truncate font-medium hover:underline text-[#1E56FF]">
+                          {file.file_name}
+                        </a>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => removeExistingFile(file.id)}
+                        className="text-red-500 hover:text-red-700 cursor-pointer p-1 flex items-center gap-1 font-semibold"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                        <span>Видалити</span>
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Зона завантаження нових файлів */}
               <div className="relative border-2 border-dashed border-[#E2E8F4] hover:border-[#1E56FF] rounded-2xl p-6 text-center transition-colors bg-[#F7F9FD]">
                 <input
                   type="file"
@@ -394,14 +444,14 @@ export default function NewMaterialPage() {
                     <Upload className="w-5 h-5" />
                   </div>
                   <p className="font-display font-bold text-xs sm:text-sm text-[#0D1117]">
-                    Додати файли (натисніть або перетягніть)
+                    Додати нові файли (натисніть або перетягніть)
                   </p>
                 </div>
               </div>
 
               {newFiles.length > 0 && (
                 <div className="space-y-2">
-                  <p className="text-xs font-bold text-[#0D1117]">Обрані файли ({newFiles.length}):</p>
+                  <p className="text-xs font-bold text-[#0D1117]">Нові обрані файли ({newFiles.length}):</p>
                   {newFiles.map((f, idx) => (
                     <div key={idx} className="flex items-center justify-between bg-white border border-[#E2E8F4] p-3 rounded-xl text-xs">
                       <div className="flex items-center gap-2 overflow-hidden">
@@ -459,7 +509,13 @@ export default function NewMaterialPage() {
               </div>
             </div>
 
-            <div className="pt-6 border-t border-[#F1F4FA] flex justify-end">
+            <div className="pt-6 border-t border-[#F1F4FA] flex justify-end gap-3">
+              <Link
+                href="/admin"
+                className="font-display font-bold text-sm px-6 py-3.5 rounded-xl bg-gray-100 text-gray-700 hover:bg-gray-200 transition-all inline-flex items-center"
+              >
+                Скасувати
+              </Link>
               <button
                 type="submit"
                 disabled={isSubmitting}
@@ -468,10 +524,10 @@ export default function NewMaterialPage() {
                 {isSubmitting ? (
                   <>
                     <Loader2 className="w-4 h-4 animate-spin" />
-                    Опублікування...
+                    Збереження...
                   </>
                 ) : (
-                  'Опублікувати матеріал'
+                  'Зберегти зміни'
                 )}
               </button>
             </div>
