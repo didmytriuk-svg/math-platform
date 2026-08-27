@@ -206,7 +206,6 @@ export default function EditMaterialPage() {
       setSuccessMsg('Матеріал та файли успішно оновлено!');
       setNewFiles([]);
       
-      // Оновлюємо список файлів з бази
       const { data: refreshedFiles } = await supabase.from('material_files').select('*').eq('material_id', id);
       setExistingFiles(refreshedFiles || []);
 
@@ -310,7 +309,26 @@ export default function EditMaterialPage() {
               />
             </div>
 
+            {/* Вибір таксономії (Предмет, Клас, Розділ, Тема, Тип) */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block font-display font-bold text-xs text-[#0D1117] uppercase tracking-wider mb-2">
+                  Предмет
+                </label>
+                <select
+                  value={selectedSubject}
+                  onChange={(e) => setSelectedSubject(e.target.value)}
+                  className="w-full text-sm bg-[#F7F9FD] border border-[#E2E8F4] text-[#0D1117] rounded-xl px-4 py-3 outline-none focus:border-[#1E56FF] cursor-pointer font-medium"
+                >
+                  <option value="">-- Оберіть предмет --</option>
+                  {taxonomy.subjects.map((sub) => (
+                    <option key={sub.id} value={sub.id}>
+                      {sub.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
               <div>
                 <label className="block font-display font-bold text-xs text-[#0D1117] uppercase tracking-wider mb-2">
                   Клас *
@@ -329,25 +347,6 @@ export default function EditMaterialPage() {
                   {taxonomy.grades.map((grade) => (
                     <option key={grade.id} value={grade.id}>
                       {grade.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block font-display font-bold text-xs text-[#0D1117] uppercase tracking-wider mb-2">
-                  Тип матеріалу *
-                </label>
-                <select
-                  value={selectedType}
-                  onChange={(e) => setSelectedType(e.target.value)}
-                  className="w-full text-sm bg-[#F7F9FD] border border-[#E2E8F4] text-[#0D1117] rounded-xl px-4 py-3 outline-none focus:border-[#1E56FF] cursor-pointer font-medium"
-                  required
-                >
-                  <option value="">-- Оберіть тип --</option>
-                  {taxonomy.materialTypes.map((type) => (
-                    <option key={type.id} value={type.id}>
-                      {type.name}
                     </option>
                   ))}
                 </select>
@@ -393,6 +392,25 @@ export default function EditMaterialPage() {
                   ))}
                 </select>
               </div>
+
+              <div className="sm:col-span-2">
+                <label className="block font-display font-bold text-xs text-[#0D1117] uppercase tracking-wider mb-2">
+                  Тип матеріалу *
+                </label>
+                <select
+                  value={selectedType}
+                  onChange={(e) => setSelectedType(e.target.value)}
+                  className="w-full text-sm bg-[#F7F9FD] border border-[#E2E8F4] text-[#0D1117] rounded-xl px-4 py-3 outline-none focus:border-[#1E56FF] cursor-pointer font-medium"
+                  required
+                >
+                  <option value="">-- Оберіть тип --</option>
+                  {taxonomy.materialTypes.map((type) => (
+                    <option key={type.id} value={type.id}>
+                      {type.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
 
             {/* Керування файлами */}
@@ -401,7 +419,6 @@ export default function EditMaterialPage() {
                 Прикріплені файли
               </label>
 
-              {/* Наявні файли в базі */}
               {existingFiles.length > 0 && (
                 <div className="space-y-2">
                   <p className="text-xs text-[#5E687E]">Вже завантажені файли:</p>
@@ -426,7 +443,6 @@ export default function EditMaterialPage() {
                 </div>
               )}
 
-              {/* Завантаження нових файлів */}
               <div className="relative border-2 border-dashed border-[#E2E8F4] hover:border-[#1E56FF] rounded-2xl p-6 text-center transition-colors bg-[#F7F9FD]">
                 <input
                   type="file"
