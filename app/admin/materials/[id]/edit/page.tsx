@@ -1,373 +1,524 @@
 'use client';
 
-import { useEffect, useState, use } from 'react';
-import { useRouter } from 'next/navigation';
-import { createClient } from '@supabase/supabase-js';
+import { useState, useEffect } from 'react';
+import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
+import { ArrowLeft, Upload, CheckCircle2, AlertCircle, Loader2, BookOpen, X, FileText, Trash2 } from 'lucide-react';
+import { createClient } from '@/lib/supabase/client';
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
-const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
-const supabase = createClient(supabaseUrl, supabaseKey);
-
-export default function EditMaterialPage({ params }: { params: Promise<{ id: string }> }) {
+export default function EditMaterialPage() {
   const router = useRouter();
-  const resolvedParams = use(params);
-  const materialId = resolvedParams.id;
+  const params = useParams();
+  const id = params?.id as string;
+  const supabase = createClient();
 
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [uploading, setUploading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [taxonomy, setTaxonomy] = useState<{
+    subjects: any[];
+    grades: any[];
+    sections: any[];
+    topics: any[];
+    materialTypes: any[];
+  }>({
+    subjects: [],
+    grades: [],
+    sections: [],
+    topics: [],
+    materialTypes: [],
+  });
 
-  // Довідники
-  const [grades, setGrades] = useState<any[]>([]);
-  const [subjects, setSubjects] = useState<any[]>([]);
-  const [sections, setSections] = useState<any[]>([]);
-  const [topics, setTopics] = useState<any[]>([]);
-  const [materialTypes, setMaterialTypes] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
-  // Форма
+  // Форма стану
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
-  const [gradeId, setGradeId] = useState('');
-  const [subjectId, setSubjectId] = useState('');
-  const [sectionId, setSectionId] = useState('');
-  const [topicId, setTopicId] = useState('');
-  const [materialTypeId, setMaterialTypeId] = useState('');
-  const [isPublished, setIsPublished] = useState(true);
-  
+  const [content, setContent] = useState('');
+  const [selectedSubject, setSelectedSubject] = useState('');
+  const [selectedGrade, setSelectedGrade] = useState('');
+  const [selectedSection, setSelectedSection] = useState('');
+  const [selectedTopic, setSelectedTopic] = useState('');
+  const [selectedType, setSelectedType] = useState('');
+  const [externalUrl, setExternalUrl] = useState('');
+  const [isInteractive, setIsInteractive] = useState(false);
+  const [isPremium, setIsPremium] = useState(false);
+
   // Файли
-  const [fileUrl, setFileUrl] = useState('');
-  const [previewUrl, setPreviewUrl] = useState('');
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [selectedPreview, setSelectedPreview] = useState<File | null>(null);
+  const [existingFiles, setExistingFiles] = useState<any[]>([]);
+  const [newFiles, setNewFiles] = useState<File[]>([]);
 
   useEffect(() => {
+    if (!id) return;
+
     async function loadData() {
       try {
-        setLoading(true);
-
-        const [
-          { data: gradesData },
-          { data: subjectsData },
-          { data: sectionsData },
-          { data: topicsData },
-          { data: typesData },
-        ] = await Promise.all([
-          supabase.from('grades').select('*').order('order'),
-          supabase.from('subjects').select('*'),
-          supabase.from('sections').select('*'),
-          supabase.from('topics').select('*'),
-          supabase.from('material_types').select('*'),
+        setIsLoading(true);
+        const [gRes, tRes, sRes, topRes, subRes, matRes, filesRes] = await Promise.all([
+          supabase.from('grades').select('id, name, number').order('number'),
+          supabase.from('material_types').select('id, name, slug'),
+          supabase.from('sections').select('id, name, grade_id'),
+          supabase.from('topics').select('id, name, section_id'),
+          supabase.from('subjects').select('id, name'),
+          supabase.from('materials').select('*').eq('id', id).single(),
+          supabase.from('material_files').select('*').eq('material_id', id),
         ]);
 
-        setGrades(gradesData || []);
-        setSubjects(subjectsData || []);
-        setSections(sectionsData || []);
-        setTopics(topicsData || []);
-        setMaterialTypes(typesData || []);
-
-        const { data: material, error: matError } = await supabase
-          .from('materials')
-          .select('*')
-          .eq('id', materialId)
-          .single();
-
-        if (matError) throw matError;
-
-        if (material) {
-          setTitle(material.title || '');
-          setDescription(material.description || '');
-          setGradeId(material.grade_id || '');
-          setSubjectId(material.subject_id || '');
-          setSectionId(material.section_id || '');
-          setTopicId(material.topic_id || '');
-          setMaterialTypeId(material.material_type_id || '');
-          setIsPublished(material.is_published ?? true);
-          setFileUrl(material.file_url || '');
-          setPreviewUrl(material.preview_url || '');
+        if (matRes.error || !matRes.data) {
+          throw new Error('Матеріал не знайдено.');
         }
+
+        const mat = matRes.data;
+        setTitle(mat.title || '');
+        setDescription(mat.description || '');
+        setContent(mat.content || '');
+        setSelectedSubject(mat.subject_id || '');
+        setSelectedGrade(mat.grade_id || '');
+        setSelectedSection(mat.section_id || '');
+        setSelectedTopic(mat.topic_id || '');
+        setSelectedType(mat.material_type_id || '');
+        setExternalUrl(mat.external_url || '');
+        setIsInteractive(Boolean(mat.is_interactive));
+        setIsPremium(Boolean(mat.is_premium));
+
+        setExistingFiles(filesRes.data || []);
+
+        setTaxonomy({
+          grades: gRes.data || [],
+          materialTypes: tRes.data || [],
+          sections: sRes.data || [],
+          topics: topRes.data || [],
+          subjects: subRes.data || [],
+        });
       } catch (err: any) {
-        console.error('Помилка завантаження матеріалу:', err.message);
-        setError('Не вдалося завантажити дані матеріалу.');
+        setErrorMsg(err.message || 'Помилка завантаження даних матеріалу.');
       } finally {
-        setLoading(false);
+        setIsLoading(false);
       }
     }
 
     loadData();
-  }, [materialId]);
+  }, [id, supabase]);
 
-  const handleUpdate = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setSaving(true);
-    setError(null);
+  const availableSections = selectedGrade
+    ? taxonomy.sections.filter((s) => s.grade_id === selectedGrade)
+    : taxonomy.sections;
 
-    try {
-      let currentFileUrl = fileUrl;
-      let currentPreviewUrl = previewUrl;
+  const availableTopics = selectedSection
+    ? taxonomy.topics.filter((t) => t.section_id === selectedSection)
+    : [];
 
-      // Якщо вибрано новий файл для завантаження
-      if (selectedFile) {
-        setUploading(true);
-        const fileName = `${Date.now()}-${selectedFile.name}`;
-        const { data: fileData, error: fileError } = await supabase.storage
-          .from('materials')
-          .upload(fileName, selectedFile);
-
-        if (fileError) throw fileError;
-
-        const { data: publicUrlData } = supabase.storage
-          .from('materials')
-          .getPublicUrl(fileData.path);
-
-        currentFileUrl = publicUrlData.publicUrl;
-      }
-
-      // Якщо вибрано новий прев'ю-файл
-      if (selectedPreview) {
-        const previewName = `preview-${Date.now()}-${selectedPreview.name}`;
-        const { data: prevData, error: prevError } = await supabase.storage
-          .from('materials')
-          .upload(previewName, selectedPreview);
-
-        if (prevError) throw prevError;
-
-        const { data: publicPrevData } = supabase.storage
-          .from('materials')
-          .getPublicUrl(prevData.path);
-
-        currentPreviewUrl = publicPrevData.publicUrl;
-      }
-
-      const { error: updateError } = await supabase
-        .from('materials')
-        .update({
-          title,
-          description,
-          grade_id: gradeId || null,
-          subject_id: subjectId || null,
-          section_id: sectionId || null,
-          topic_id: topicId || null,
-          material_type_id: materialTypeId || null,
-          is_published: isPublished,
-          file_url: currentFileUrl,
-          preview_url: currentPreviewUrl,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', materialId);
-
-      if (updateError) throw updateError;
-
-      router.push('/admin/materials');
-      router.refresh();
-    } catch (err: any) {
-      console.error('Помилка оновлення:', err.message);
-      setError(err.message || 'Помилка при збереженні змін.');
-    } finally {
-      setSaving(false);
-      setUploading(false);
+  const handleNewFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) {
+      const chosen = Array.from(e.target.files);
+      setNewFiles((prev) => [...prev, ...chosen]);
     }
   };
 
-  if (loading) {
+  const removeNewFile = (index: number) => {
+    setNewFiles((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const deleteExistingFile = async (fileId: string) => {
+    try {
+      const { error } = await supabase.from('material_files').delete().eq('id', fileId);
+      if (error) throw error;
+      setExistingFiles((prev) => prev.filter((f) => f.id !== fileId));
+    } catch (err: any) {
+      alert(`Не вдалося видалити файл: ${err.message}`);
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setErrorMsg(null);
+    setSuccessMsg(null);
+
+    if (!title.trim()) {
+      setErrorMsg('Вкажіть назву матеріалу.');
+      return;
+    }
+    if (!selectedGrade) {
+      setErrorMsg('Оберіть клас.');
+      return;
+    }
+    if (!selectedType) {
+      setErrorMsg('Оберіть тип матеріалу.');
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    try {
+      // 1. Оновлюємо основний запис матеріалу
+      const { error: updateError } = await supabase
+        .from('materials')
+        .update({
+          title: title.trim(),
+          description: description.trim() || null,
+          content: content.trim() || null,
+          subject_id: selectedSubject || null,
+          grade_id: selectedGrade,
+          section_id: selectedSection || null,
+          topic_id: selectedTopic || null,
+          material_type_id: selectedType,
+          external_url: externalUrl.trim() || null,
+          is_interactive: isInteractive,
+          is_premium: isPremium,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', id);
+
+      if (updateError) throw updateError;
+
+      // 2. Завантажуємо нові додані файли
+      if (newFiles.length > 0) {
+        for (const file of newFiles) {
+          const fileExt = file.name.split('.').pop();
+          const fileNameClean = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
+          const filePath = `documents/${fileNameClean}`;
+
+          const { error: uploadError } = await supabase.storage
+            .from('materials')
+            .upload(filePath, file, { cacheControl: '3600', upsert: false });
+
+          if (uploadError) {
+            console.error('Storage upload error:', uploadError);
+            throw new Error(`Помилка завантаження файлу ${file.name}: ${uploadError.message}`);
+          }
+
+          const { data: publicUrlData } = supabase.storage.from('materials').getPublicUrl(filePath);
+
+          const { error: insertFileErr } = await supabase.from('material_files').insert({
+            material_id: id,
+            file_url: publicUrlData.publicUrl,
+            file_name: file.name,
+            file_size: file.size,
+          });
+
+          if (insertFileErr) {
+            console.error('DB insert file error:', insertFileErr);
+            throw new Error(`Помилка збереження файлу в базі: ${insertFileErr.message}`);
+          }
+        }
+      }
+
+      setSuccessMsg('Матеріал та файли успішно оновлено!');
+      setNewFiles([]);
+      
+      // Оновлюємо список файлів з бази
+      const { data: refreshedFiles } = await supabase.from('material_files').select('*').eq('material_id', id);
+      setExistingFiles(refreshedFiles || []);
+
+      setTimeout(() => {
+        router.push('/admin');
+      }, 1200);
+    } catch (err: any) {
+      setErrorMsg(err.message || 'Помилка при збереженні змін.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  if (isLoading) {
     return (
-      <div className="max-w-4xl mx-auto px-4 py-20 text-center text-zinc-400 font-medium">
-        Завантаження даних матеріалу...
+      <div className="min-h-screen bg-volya-grid flex items-center justify-center">
+        <div className="flex items-center gap-2 font-display font-bold text-sm text-[#0D1117]">
+          <Loader2 className="w-5 h-5 animate-spin text-[#1E56FF]" />
+          Завантаження даних матеріалу...
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-      <div className="mb-8 flex items-center justify-between">
-        <Link
-          href="/admin/materials"
-          className="text-sm font-semibold text-zinc-500 hover:text-zinc-900 transition-colors flex items-center gap-1.5"
-        >
-          <span>←</span> Назад до керування матеріалами
-        </Link>
-      </div>
-
-      <div className="bg-white rounded-3xl border border-zinc-200/80 p-8 sm:p-10 shadow-sm">
-        <div className="mb-8 pb-6 border-b border-zinc-100">
-          <h1 className="text-2xl font-extrabold text-zinc-900 tracking-tight">Редагування матеріалу</h1>
-          <p className="text-sm text-zinc-500 mt-1">Змініть параметри розробки або замініть файл у сховищі.</p>
+    <div className="min-h-screen bg-volya-grid py-10 sm:py-14">
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
+        <div className="flex items-center justify-between">
+          <Link
+            href="/admin"
+            className="inline-flex items-center gap-2 text-xs font-display font-bold text-[#5E687E] hover:text-[#1E56FF] transition-colors"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            Назад до адмін-панелі
+          </Link>
+          <span className="text-xs font-mono-math font-semibold text-[#1E56FF] bg-[#EFF4FF] border border-[#D5E2FF] px-3 py-1 rounded-lg">
+            Редагування матеріалу
+          </span>
         </div>
 
-        {error && (
-          <div className="mb-6 p-4 rounded-2xl bg-red-50 border border-red-200 text-sm text-red-600 font-medium">
-            {error}
-          </div>
-        )}
-
-        <form onSubmit={handleUpdate} className="space-y-6">
-          <div>
-            <label className="block text-sm font-bold text-zinc-900 mb-2">Назва матеріалу</label>
-            <input
-              type="text"
-              required
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              className="w-full rounded-2xl border border-zinc-200 px-4 py-3.5 text-sm font-medium text-zinc-900 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent transition-all bg-zinc-50/50"
-            />
+        <div className="bg-white border border-[#E2E8F4] rounded-3xl p-6 sm:p-10 shadow-xs">
+          <div className="mb-8 pb-6 border-b border-[#F1F4FA]">
+            <h1 className="font-display font-black text-2xl sm:text-3xl text-[#0D1117]">
+              Редагувати навчальний матеріал
+            </h1>
+            <p className="text-xs sm:text-sm text-[#5E687E] mt-1">
+              Змініть параметри, конспект, керуйте файлами або оновіть преміум-доступ
+            </p>
           </div>
 
-          <div>
-            <label className="block text-sm font-bold text-zinc-900 mb-2">Опис</label>
-            <textarea
-              rows={4}
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              className="w-full rounded-2xl border border-zinc-200 px-4 py-3.5 text-sm font-medium text-zinc-900 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent transition-all bg-zinc-50/50 resize-y"
-            />
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-            <div>
-              <label className="block text-sm font-bold text-zinc-900 mb-2">Клас</label>
-              <select
-                value={gradeId}
-                onChange={(e) => setGradeId(e.target.value)}
-                className="w-full rounded-2xl border border-zinc-200 px-4 py-3.5 text-sm font-medium text-zinc-900 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent transition-all bg-zinc-50/50"
-              >
-                <option value="">Оберіть клас</option>
-                {grades.map((g) => (
-                  <option key={g.id} value={g.id}>
-                    {g.name}
-                  </option>
-                ))}
-              </select>
+          {errorMsg && (
+            <div className="mb-6 p-4 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs sm:text-sm flex items-start gap-3">
+              <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
+              <span>{errorMsg}</span>
             </div>
+          )}
 
-            <div>
-              <label className="block text-sm font-bold text-zinc-900 mb-2">Предмет</label>
-              <select
-                value={subjectId}
-                onChange={(e) => setSubjectId(e.target.value)}
-                className="w-full rounded-2xl border border-zinc-200 px-4 py-3.5 text-sm font-medium text-zinc-900 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent transition-all bg-zinc-50/50"
-              >
-                <option value="">Оберіть предмет</option>
-                {subjects.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.name}
-                  </option>
-                ))}
-              </select>
+          {successMsg && (
+            <div className="mb-6 p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs sm:text-sm flex items-start gap-3">
+              <CheckCircle2 className="w-5 h-5 shrink-0 mt-0.5 text-[#00BA7C]" />
+              <span>{successMsg}</span>
             </div>
-          </div>
+          )}
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+          <form onSubmit={handleSubmit} className="space-y-6">
             <div>
-              <label className="block text-sm font-bold text-zinc-900 mb-2">Розділ</label>
-              <select
-                value={sectionId}
-                onChange={(e) => setSectionId(e.target.value)}
-                className="w-full rounded-2xl border border-zinc-200 px-4 py-3.5 text-sm font-medium text-zinc-900 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent transition-all bg-zinc-50/50"
-              >
-                <option value="">Оберіть розділ</option>
-                {sections.map((sec) => (
-                  <option key={sec.id} value={sec.id}>
-                    {sec.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-sm font-bold text-zinc-900 mb-2">Тема</label>
-              <select
-                value={topicId}
-                onChange={(e) => setTopicId(e.target.value)}
-                className="w-full rounded-2xl border border-zinc-200 px-4 py-3.5 text-sm font-medium text-zinc-900 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent transition-all bg-zinc-50/50"
-              >
-                <option value="">Оберіть тему</option>
-                {topics.map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {t.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-sm font-bold text-zinc-900 mb-2">Тип матеріалу</label>
-              <select
-                value={materialTypeId}
-                onChange={(e) => setMaterialTypeId(e.target.value)}
-                className="w-full rounded-2xl border border-zinc-200 px-4 py-3.5 text-sm font-medium text-zinc-900 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent transition-all bg-zinc-50/50"
-              >
-                <option value="">Оберіть тип</option>
-                {materialTypes.map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {t.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          {/* Блок завантаження файлів */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 pt-4 border-t border-zinc-100">
-            <div>
-              <label className="block text-sm font-bold text-zinc-900 mb-2">Основний файл матеріалу</label>
-              {fileUrl && (
-                <div className="text-xs text-blue-600 mb-2 truncate font-medium">
-                  Поточний: <a href={fileUrl} target="_blank" rel="noreferrer" className="underline">відкрити файл</a>
-                </div>
-              )}
+              <label className="block font-display font-bold text-xs text-[#0D1117] uppercase tracking-wider mb-2">
+                Назва матеріалу *
+              </label>
               <input
-                type="file"
-                onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
-                className="w-full text-sm text-zinc-500 file:mr-4 file:py-2.5 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-600 hover:file:bg-blue-100 transition-all cursor-pointer"
+                type="text"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                className="w-full text-sm bg-[#F7F9FD] border border-[#E2E8F4] text-[#0D1117] rounded-xl px-4 py-3 outline-none focus:border-[#1E56FF] focus:bg-white transition"
+                required
               />
             </div>
 
             <div>
-              <label className="block text-sm font-bold text-zinc-900 mb-2">Прев'ю / Зображення</label>
-              {previewUrl && (
-                <div className="text-xs text-blue-600 mb-2 truncate font-medium">
-                  Поточне: <a href={previewUrl} target="_blank" rel="noreferrer" className="underline">переглянути</a>
-                </div>
-              )}
-              <input
-                type="file"
-                accept="image/*"
-                onChange={(e) => setSelectedPreview(e.target.files?.[0] || null)}
-                className="w-full text-sm text-zinc-500 file:mr-4 file:py-2.5 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-600 hover:file:bg-blue-100 transition-all cursor-pointer"
+              <label className="block font-display font-bold text-xs text-[#0D1117] uppercase tracking-wider mb-2">
+                Короткий опис
+              </label>
+              <textarea
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                rows={2}
+                className="w-full text-sm bg-[#F7F9FD] border border-[#E2E8F4] text-[#0D1117] rounded-xl p-4 outline-none focus:border-[#1E56FF] focus:bg-white transition resize-y"
               />
             </div>
-          </div>
 
-          <div className="flex items-center gap-3 pt-4">
-            <input
-              type="checkbox"
-              id="isPublished"
-              checked={isPublished}
-              onChange={(e) => setIsPublished(e.target.checked)}
-              className="w-5 h-5 text-blue-600 rounded-lg border-zinc-300 focus:ring-blue-500 cursor-pointer"
-            />
-            <label htmlFor="isPublished" className="text-sm font-bold text-zinc-900 cursor-pointer">
-              Опубліковано на платформі
-            </label>
-          </div>
+            <div className="p-5 rounded-2xl bg-[#F7F9FD] border border-[#E2E8F4] space-y-2">
+              <label className="flex items-center gap-2 font-display font-bold text-xs text-[#0D1117] uppercase tracking-wider">
+                <BookOpen className="w-4 h-4 text-[#1E56FF]" />
+                Конспект уроку та методичні вказівки
+              </label>
+              <textarea
+                value={content}
+                onChange={(e) => setContent(e.target.value)}
+                rows={6}
+                className="w-full text-sm font-sans bg-white border border-[#E2E8F4] text-[#0D1117] rounded-xl p-4 outline-none focus:border-[#1E56FF] transition resize-y"
+              />
+            </div>
 
-          <div className="flex items-center justify-end gap-4 pt-6 border-t border-zinc-100">
-            <Link
-              href="/admin/materials"
-              className="px-6 py-3.5 rounded-2xl border border-zinc-200 text-sm font-bold text-zinc-700 hover:bg-zinc-50 transition-colors"
-            >
-              Скасувати
-            </Link>
-            <button
-              type="submit"
-              disabled={saving || uploading}
-              className="px-8 py-3.5 rounded-2xl bg-zinc-900 hover:bg-zinc-800 text-sm font-bold text-white shadow-sm transition-all disabled:opacity-50"
-            >
-              {uploading ? 'Завантаження файлу...' : saving ? 'Збереження...' : 'Зберегти зміни'}
-            </button>
-          </div>
-        </form>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block font-display font-bold text-xs text-[#0D1117] uppercase tracking-wider mb-2">
+                  Клас *
+                </label>
+                <select
+                  value={selectedGrade}
+                  onChange={(e) => {
+                    setSelectedGrade(e.target.value);
+                    setSelectedSection('');
+                    setSelectedTopic('');
+                  }}
+                  className="w-full text-sm bg-[#F7F9FD] border border-[#E2E8F4] text-[#0D1117] rounded-xl px-4 py-3 outline-none focus:border-[#1E56FF] cursor-pointer font-medium"
+                  required
+                >
+                  <option value="">-- Оберіть клас --</option>
+                  {taxonomy.grades.map((grade) => (
+                    <option key={grade.id} value={grade.id}>
+                      {grade.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block font-display font-bold text-xs text-[#0D1117] uppercase tracking-wider mb-2">
+                  Тип матеріалу *
+                </label>
+                <select
+                  value={selectedType}
+                  onChange={(e) => setSelectedType(e.target.value)}
+                  className="w-full text-sm bg-[#F7F9FD] border border-[#E2E8F4] text-[#0D1117] rounded-xl px-4 py-3 outline-none focus:border-[#1E56FF] cursor-pointer font-medium"
+                  required
+                >
+                  <option value="">-- Оберіть тип --</option>
+                  {taxonomy.materialTypes.map((type) => (
+                    <option key={type.id} value={type.id}>
+                      {type.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block font-display font-bold text-xs text-[#0D1117] uppercase tracking-wider mb-2">
+                  Розділ
+                </label>
+                <select
+                  value={selectedSection}
+                  onChange={(e) => {
+                    setSelectedSection(e.target.value);
+                    setSelectedTopic('');
+                  }}
+                  disabled={!selectedGrade}
+                  className="w-full text-sm bg-[#F7F9FD] border border-[#E2E8F4] text-[#0D1117] rounded-xl px-4 py-3 outline-none focus:border-[#1E56FF] cursor-pointer font-medium disabled:opacity-50"
+                >
+                  <option value="">-- Оберіть розділ --</option>
+                  {availableSections.map((sec) => (
+                    <option key={sec.id} value={sec.id}>
+                      {sec.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block font-display font-bold text-xs text-[#0D1117] uppercase tracking-wider mb-2">
+                  Тема
+                </label>
+                <select
+                  value={selectedTopic}
+                  onChange={(e) => setSelectedTopic(e.target.value)}
+                  disabled={!selectedSection}
+                  className="w-full text-sm bg-[#F7F9FD] border border-[#E2E8F4] text-[#0D1117] rounded-xl px-4 py-3 outline-none focus:border-[#1E56FF] cursor-pointer font-medium disabled:opacity-50"
+                >
+                  <option value="">-- Оберіть тему --</option>
+                  {availableTopics.map((top) => (
+                    <option key={top.id} value={top.id}>
+                      {top.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            {/* Керування файлами */}
+            <div className="pt-4 border-t border-[#F1F4FA] space-y-4">
+              <label className="block font-display font-bold text-xs text-[#0D1117] uppercase tracking-wider">
+                Прикріплені файли
+              </label>
+
+              {/* Наявні файли в базі */}
+              {existingFiles.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-xs text-[#5E687E]">Вже завантажені файли:</p>
+                  {existingFiles.map((f) => (
+                    <div key={f.id} className="flex items-center justify-between bg-slate-50 border border-[#E2E8F4] p-3 rounded-xl text-xs">
+                      <div className="flex items-center gap-2 overflow-hidden">
+                        <FileText className="w-4 h-4 text-[#1E56FF] shrink-0" />
+                        <a href={f.file_url} target="_blank" rel="noopener noreferrer" className="truncate font-medium text-[#1E56FF] hover:underline">
+                          {f.file_name || 'Файл документа'}
+                        </a>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => deleteExistingFile(f.id)}
+                        className="text-red-500 hover:text-red-700 p-1 cursor-pointer flex items-center gap-1"
+                        title="Видалити файл"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Завантаження нових файлів */}
+              <div className="relative border-2 border-dashed border-[#E2E8F4] hover:border-[#1E56FF] rounded-2xl p-6 text-center transition-colors bg-[#F7F9FD]">
+                <input
+                  type="file"
+                  multiple
+                  onChange={handleNewFileChange}
+                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                  accept=".html,.htm,.pdf,.pptx,.ppt,.docx,.doc,.zip,.png,.jpg"
+                />
+                <div className="flex flex-col items-center pointer-events-none">
+                  <div className="w-10 h-10 rounded-xl bg-[#EFF4FF] text-[#1E56FF] flex items-center justify-center mb-2">
+                    <Upload className="w-5 h-5" />
+                  </div>
+                  <p className="font-display font-bold text-xs sm:text-sm text-[#0D1117]">
+                    Додати нові файли (натисніть або перетягніть)
+                  </p>
+                </div>
+              </div>
+
+              {newFiles.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-xs font-bold text-[#0D1117]">Нові файли до завантаження ({newFiles.length}):</p>
+                  {newFiles.map((f, idx) => (
+                    <div key={idx} className="flex items-center justify-between bg-white border border-[#E2E8F4] p-3 rounded-xl text-xs">
+                      <span className="truncate font-medium">{f.name}</span>
+                      <button type="button" onClick={() => removeNewFile(idx)} className="text-red-500 cursor-pointer">
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div>
+              <label className="block font-display font-bold text-xs text-[#0D1117] uppercase tracking-wider mb-2">
+                Посилання на онлайн-вправу (LearningApps, Wordwall тощо)
+              </label>
+              <input
+                type="url"
+                value={externalUrl}
+                onChange={(e) => setExternalUrl(e.target.value)}
+                className="w-full text-sm bg-[#F7F9FD] border border-[#E2E8F4] text-[#0D1117] rounded-xl px-4 py-3 outline-none focus:border-[#1E56FF] transition"
+              />
+            </div>
+
+            {/* Чекбокси */}
+            <div className="space-y-3 pt-2">
+              <div className="flex items-center gap-3">
+                <input
+                  type="checkbox"
+                  id="interactive-check"
+                  checked={isInteractive}
+                  onChange={(e) => setIsInteractive(e.target.checked)}
+                  className="w-4 h-4 rounded border-[#E2E8F4] text-[#1E56FF] cursor-pointer"
+                />
+                <label htmlFor="interactive-check" className="text-xs font-semibold text-[#0D1117] cursor-pointer">
+                  Це інтерактивний веб-матеріал
+                </label>
+              </div>
+
+              <div className="flex items-center gap-3">
+                <input
+                  type="checkbox"
+                  id="premium-check"
+                  checked={isPremium}
+                  onChange={(e) => setIsPremium(e.target.checked)}
+                  className="w-4 h-4 rounded border-[#E2E8F4] text-amber-600 cursor-pointer"
+                />
+                <label htmlFor="premium-check" className="text-xs font-semibold text-[#0D1117] cursor-pointer">
+                  Зробити матеріал преміальним (доступ за підпискою)
+                </label>
+              </div>
+            </div>
+
+            <div className="pt-6 border-t border-[#F1F4FA] flex justify-end">
+              <button
+                type="submit"
+                disabled={isSubmitting}
+                className="font-display font-bold text-sm px-8 py-3.5 rounded-xl bg-[#1E56FF] text-white hover:bg-[#0D33B3] disabled:opacity-50 transition-all shadow-sm inline-flex items-center gap-2 cursor-pointer"
+              >
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Збереження змін...
+                  </>
+                ) : (
+                  'Зберегти зміни'
+                )}
+              </button>
+            </div>
+          </form>
+        </div>
       </div>
     </div>
   );
