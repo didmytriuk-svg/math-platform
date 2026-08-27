@@ -54,13 +54,12 @@ export default function EditMaterialPage() {
     async function loadData() {
       try {
         setIsLoading(true);
-
         const [gRes, tRes, sRes, topRes, subRes, matRes, filesRes] = await Promise.all([
-          supabase.from('grades').select('id, name, number').order('number'),
-          supabase.from('material_types').select('id, name, slug'),
-          supabase.from('sections').select('id, name, grade_id'),
-          supabase.from('topics').select('id, name, section_id'),
-          supabase.from('subjects').select('id, name'),
+          supabase.from('grades').select('*').order('name'),
+          supabase.from('material_types').select('*'),
+          supabase.from('sections').select('*'),
+          supabase.from('topics').select('*'),
+          supabase.from('subjects').select('*'),
           supabase.from('materials').select('*').eq('id', id).single(),
           supabase.from('material_files').select('*').eq('material_id', id),
         ]);
@@ -92,7 +91,6 @@ export default function EditMaterialPage() {
           subjects: subRes.data || [],
         });
       } catch (err: any) {
-        console.error('Error loading edit page data:', err);
         setErrorMsg(err.message || 'Помилка завантаження даних матеріалу.');
       } finally {
         setIsLoading(false);
@@ -202,7 +200,7 @@ export default function EditMaterialPage() {
       }
 
       setSuccessMsg('Матеріал та файли успішно оновлено!');
-      setNewFiles([]); // Виправлено: передано порожній масив замість пустого виклику
+      setNewFiles([]);
       
       const { data: refreshedFiles } = await supabase.from('material_files').select('*').eq('material_id', id);
       setExistingFiles(refreshedFiles || []);
@@ -307,6 +305,7 @@ export default function EditMaterialPage() {
               />
             </div>
 
+            {/* Сітка вибору таксономії (повністю аналогічна сторінці створення) */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="block font-display font-bold text-xs text-[#0D1117] uppercase tracking-wider mb-2">
