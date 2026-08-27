@@ -26,6 +26,9 @@ export const metadata: Metadata = {
   title: 'VOLYA ACADEMY — Матеріали для викладачів математики 5–11 класів',
   description:
     'Готові презентації, інтерактивні HTML5-ігри, самостійні та контрольні роботи з математики для вчителів і репетиторів.',
+  icons: {
+    icon: '/icon.png',
+  },
 };
 
 export default function RootLayout({
