@@ -1,154 +1,293 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useEffect, useState, use } from 'react';
+import { useRouter } from 'next/navigation';
+import { createClient } from '@supabase/supabase-js';
 import Link from 'next/link';
-import { ArrowLeft, Plus, Trash2, Edit3, Loader2, FileText } from 'lucide-react';
-import { createClient } from '@/lib/supabase/client';
 
-export default function AdminMaterialsPage() {
-  const supabase = createClient();
-  const [materials, setMaterials] = useState<any[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
+const supabase = createClient(supabaseUrl, supabaseKey);
 
-  const loadMaterials = async () => {
-    setIsLoading(true);
-    try {
-      const { data, error } = await supabase
-        .from('materials')
-        .select('*, grades(name), material_types(name)')
-        .order('created_at', { ascending: false });
+export default function EditMaterialPage({ params }: { params: Promise<{ id: string }> }) {
+  const router = useRouter();
+  const resolvedParams = use(params);
+  const materialId = resolvedParams.id;
 
-      if (error) throw error;
-      setMaterials(data || []);
-    } catch (err) {
-      console.error('Error loading materials:', err);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Словники для випадаючих списків
+  const [grades, setGrades] = useState<any[]>([]);
+  const [subjects, setSubjects] = useState<any[]>([]);
+  const [sections, setSections] = useState<any[]>([]);
+  const [topics, setTopics] = useState<any[]>([]);
+  const [materialTypes, setMaterialTypes] = useState<any[]>([]);
+
+  // Форма
+  const [title, setTitle] = useState('');
+  const [description, setDescription] = useState('');
+  const [gradeId, setGradeId] = useState('');
+  const [subjectId, setSubjectId] = useState('');
+  const [sectionId, setSectionId] = useState('');
+  const [topicId, setTopicId] = useState('');
+  const [materialTypeId, setMaterialTypeId] = useState('');
+  const [isPublished, setIsPublished] = useState(true);
 
   useEffect(() => {
-    loadMaterials();
-  }, [supabase]);
+    async function loadData() {
+      try {
+        setLoading(true);
 
-  const handleDelete = async (id: string) => {
-    if (!confirm('Ви дійсно хочете видалити цей матеріал?')) return;
+        // Завантажуємо довідники
+        const [
+          { data: gradesData },
+          { data: subjectsData },
+          { data: sectionsData },
+          { data: topicsData },
+          { data: typesData },
+        ] = await Promise.all([
+          supabase.from('grades').select('*').order('order'),
+          supabase.from('subjects').select('*'),
+          supabase.from('sections').select('*'),
+          supabase.from('topics').select('*'),
+          supabase.from('material_types').select('*'),
+        ]);
+
+        setGrades(gradesData || []);
+        setSubjects(subjectsData || []);
+        setSections(sectionsData || []);
+        setTopics(topicsData || []);
+        setMaterialTypes(typesData || []);
+
+        // Завантажуємо сам матеріал
+        const { data: material, error: matError } = await supabase
+          .from('materials')
+          .select('*')
+          .eq('id', materialId)
+          .single();
+
+        if (matError) throw matError;
+
+        if (material) {
+          setTitle(material.title || '');
+          setDescription(material.description || '');
+          setGradeId(material.grade_id || '');
+          setSubjectId(material.subject_id || '');
+          setSectionId(material.section_id || '');
+          setTopicId(material.topic_id || '');
+          setMaterialTypeId(material.material_type_id || '');
+          setIsPublished(material.is_published ?? true);
+        }
+      } catch (err: any) {
+        console.error('Помилка завантаження матеріалу:', err.message);
+        setError('Не вдалося завантажити дані матеріалу.');
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    loadData();
+  }, [materialId]);
+
+  const handleUpdate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSaving(true);
+    setError(null);
 
     try {
-      const { error } = await supabase.from('materials').delete().eq('id', id);
-      if (error) throw error;
-      setMaterials((prev) => prev.filter((m) => m.id !== id));
+      const { error: updateError } = await supabase
+        .from('materials')
+        .update({
+          title,
+          description,
+          grade_id: gradeId || null,
+          subject_id: subjectId || null,
+          section_id: sectionId || null,
+          topic_id: topicId || null,
+          material_type_id: materialTypeId || null,
+          is_published: isPublished,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', materialId);
+
+      if (updateError) throw updateError;
+
+      router.push('/admin/materials');
+      router.refresh();
     } catch (err: any) {
-      alert('Помилка видалення: ' + err.message);
+      console.error('Помилка оновлення:', err.message);
+      setError(err.message || 'Помилка при збереженні змін.');
+    } finally {
+      setSaving(false);
     }
   };
 
-  return (
-    <div className="min-h-screen bg-volya-grid py-10 sm:py-14">
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
-        
-        <div className="flex items-center justify-between">
-          <Link
-            href="/admin"
-            className="inline-flex items-center gap-2 text-xs font-display font-bold text-[#5E687E] hover:text-[#1E56FF] transition-colors"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            Назад до адмін-панелі
-          </Link>
-          <Link
-            href="/admin/materials/new"
-            className="inline-flex items-center gap-2 text-xs font-display font-bold px-4 py-2.5 rounded-xl bg-[#1E56FF] text-white hover:bg-[#0D33B3] transition-colors shadow-xs"
-          >
-            <Plus className="w-4 h-4" />
-            Додати новий матеріал
-          </Link>
-        </div>
+  if (loading) {
+    return (
+      <div className="max-w-4xl mx-auto px-4 py-16 text-center text-zinc-500">
+        Завантаження даних матеріалу...
+      </div>
+    );
+  }
 
-        <div className="bg-white border border-[#E2E8F4] rounded-3xl p-6 sm:p-8 shadow-xs space-y-6">
-          <div className="border-b border-[#F1F4FA] pb-4 flex items-center justify-between">
+  return (
+    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+      <div className="mb-6 flex items-center justify-between">
+        <Link
+          href="/admin/materials"
+          className="text-sm font-medium text-zinc-500 hover:text-zinc-900 transition-colors"
+        >
+          ← Назад до керування матеріалами
+        </Link>
+      </div>
+
+      <div className="bg-white rounded-2xl border border-zinc-200/80 p-8 shadow-sm">
+        <h1 className="text-2xl font-bold text-zinc-900 mb-2">Редагування матеріалу</h1>
+        <p className="text-sm text-zinc-500 mb-8">Змініть необхідні поля та збережіть зміни.</p>
+
+        {error && (
+          <div className="mb-6 p-4 rounded-xl bg-red-50 border border-red-200 text-sm text-red-600">
+            {error}
+          </div>
+        )}
+
+        <form onSubmit={handleUpdate} className="space-y-6">
+          <div>
+            <label className="block text-sm font-semibold text-zinc-700 mb-2">Назва матеріалу</label>
+            <input
+              type="text"
+              required
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              className="w-full rounded-xl border border-zinc-300 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-600"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-semibold text-zinc-700 mb-2">Опис</label>
+            <textarea
+              rows={4}
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              className="w-full rounded-xl border border-zinc-300 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-600"
+            />
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
             <div>
-              <h1 className="font-display font-black text-xl text-[#0D1117]">
-                Керування матеріалами ({materials.length})
-              </h1>
-              <p className="text-xs text-[#5E687E] mt-0.5">
-                Усі опубліковані та чернетки навчальних розробок
-              </p>
+              <label className="block text-sm font-semibold text-zinc-700 mb-2">Клас</label>
+              <select
+                value={gradeId}
+                onChange={(e) => setGradeId(e.target.value)}
+                className="w-full rounded-xl border border-zinc-300 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-600 bg-white"
+              >
+                <option value="">Оберіть клас</option>
+                {grades.map((g) => (
+                  <option key={g.id} value={g.id}>
+                    {g.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-semibold text-zinc-700 mb-2">Предмет</label>
+              <select
+                value={subjectId}
+                onChange={(e) => setSubjectId(e.target.value)}
+                className="w-full rounded-xl border border-zinc-300 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-600 bg-white"
+              >
+                <option value="">Оберіть предмет</option>
+                {subjects.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name}
+                  </option>
+                ))}
+              </select>
             </div>
           </div>
 
-          {isLoading ? (
-            <div className="py-16 flex items-center justify-center">
-              <Loader2 className="w-6 h-6 animate-spin text-[#1E56FF]" />
-            </div>
-          ) : materials.length > 0 ? (
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs">
-                <thead>
-                  <tr className="border-b border-[#F1F4FA] text-[#5E687E] font-mono-math">
-                    <th className="py-3 px-4 font-bold">Назва матеріалу</th>
-                    <th className="py-3 px-4 font-bold">Клас</th>
-                    <th className="py-3 px-4 font-bold">Тип</th>
-                    <th className="py-3 px-4 font-bold">Статус</th>
-                    <th className="py-3 px-4 font-bold text-right">Дії</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-[#F1F4FA]">
-                  {materials.map((m) => (
-                    <tr key={m.id} className="hover:bg-[#F7F9FD] transition-colors">
-                      <td className="py-3.5 px-4 font-bold text-[#0D1117] max-w-xs truncate">
-                        {m.title}
-                      </td>
-                      <td className="py-3.5 px-4 text-[#5E687E]">
-                        {m.grades?.name || '—'}
-                      </td>
-                      <td className="py-3.5 px-4">
-                        <span className="px-2 py-0.5 rounded bg-[#EFF4FF] text-[#1E56FF] font-mono-math font-bold text-[10px]">
-                          {m.material_types?.name || 'Матеріал'}
-                        </span>
-                      </td>
-                      <td className="py-3.5 px-4">
-                        {m.is_published ? (
-                          <span className="text-[10px] font-bold text-[#00BA7C] bg-[#F0FDF4] px-2 py-0.5 rounded">Опубліковано</span>
-                        ) : (
-                          <span className="text-[10px] font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded">Чернетка</span>
-                        )}
-                      </td>
-                      <td className="py-3.5 px-4 text-right space-x-2">
-                        <Link
-                          href={`/admin/materials/${m.id}/edit`}
-                          className="inline-flex p-2 rounded-lg bg-[#F7F9FD] border border-[#E2E8F4] text-[#1E56FF] hover:bg-[#EFF4FF] transition-colors"
-                          title="Редагувати"
-                        >
-                          <Edit3 className="w-3.5 h-3.5" />
-                        </Link>
-                        <button
-                          type="button"
-                          onClick={() => handleDelete(m.id)}
-                          className="inline-flex p-2 rounded-lg bg-red-50 border border-red-200 text-red-600 hover:bg-red-100 transition-colors cursor-pointer"
-                          title="Видалити"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          ) : (
-            <div className="py-16 text-center space-y-3">
-              <FileText className="w-10 h-10 text-[#94A3B8] mx-auto" />
-              <p className="text-xs text-[#5E687E]">Матеріалів поки немає в базі даних.</p>
-              <Link
-                href="/admin/materials/new"
-                className="inline-block text-xs font-display font-bold text-[#1E56FF] hover:underline"
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+            <div>
+              <label className="block text-sm font-semibold text-zinc-700 mb-2">Розділ</label>
+              <select
+                value={sectionId}
+                onChange={(e) => setSectionId(e.target.value)}
+                className="w-full rounded-xl border border-zinc-300 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-600 bg-white"
               >
-                Створити перший матеріал →
-              </Link>
+                <option value="">Оберіть розділ</option>
+                {sections.map((sec) => (
+                  <option key={sec.id} value={sec.id}>
+                    {sec.name}
+                  </option>
+                ))}
+              </select>
             </div>
-          )}
-        </div>
 
+            <div>
+              <label className="block text-sm font-semibold text-zinc-700 mb-2">Тема</label>
+              <select
+                value={topicId}
+                onChange={(e) => setTopicId(e.target.value)}
+                className="w-full rounded-xl border border-zinc-300 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-600 bg-white"
+              >
+                <option value="">Оберіть тему</option>
+                {topics.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-semibold text-zinc-700 mb-2">Тип матеріалу</label>
+              <select
+                value={materialTypeId}
+                onChange={(e) => setMaterialTypeId(e.target.value)}
+                className="w-full rounded-xl border border-zinc-300 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-600 bg-white"
+              >
+                <option value="">Оберіть тип</option>
+                {materialTypes.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3 pt-2">
+            <input
+              type="checkbox"
+              id="isPublished"
+              checked={isPublished}
+              onChange={(e) => setIsPublished(e.target.checked)}
+              className="w-4 h-4 text-blue-600 rounded border-zinc-300 focus:ring-blue-500"
+            />
+            <label htmlFor="isPublished" className="text-sm font-medium text-zinc-700">
+              Опубліковано на платформі
+            </label>
+          </div>
+
+          <div className="flex items-center justify-end gap-4 pt-4 border-t border-zinc-100">
+            <Link
+              href="/admin/materials"
+              className="px-6 py-3 rounded-xl border border-zinc-300 text-sm font-semibold text-zinc-700 hover:bg-zinc-50 transition-colors"
+            >
+              Скасувати
+            </Link>
+            <button
+              type="submit"
+              disabled={saving}
+              className="px-6 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-sm font-semibold text-white shadow-sm transition-all disabled:opacity-50"
+            >
+              {saving ? 'Збереження...' : 'Зберегти зміни'}
+            </button>
+          </div>
+        </form>
       </div>
     </div>
   );
