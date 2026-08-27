@@ -22,13 +22,9 @@ export default function EditMaterialPage({ params }: { params: Promise<{ id: str
 
   const [taxonomy, setTaxonomy] = useState<{
     grades: any[];
-    sections: any[];
-    topics: any[];
     materialTypes: any[];
   }>({
     grades: [],
-    sections: [],
-    topics: [],
     materialTypes: [],
   });
 
@@ -42,13 +38,10 @@ export default function EditMaterialPage({ params }: { params: Promise<{ id: str
   const [description, setDescription] = useState('');
   const [content, setContent] = useState('');
   const [selectedGrade, setSelectedGrade] = useState('');
-  const [selectedSection, setSelectedSection] = useState('');
-  const [selectedTopic, setSelectedTopic] = useState('');
   const [selectedType, setSelectedType] = useState('');
   const [externalUrl, setExternalUrl] = useState('');
   const [isInteractive, setIsInteractive] = useState(false);
   const [isPremium, setIsPremium] = useState(false);
-  const [previewUrl, setPreviewUrl] = useState('');
 
   // Файли
   const [existingFiles, setExistingFiles] = useState<ExistingFile[]>([]);
@@ -60,12 +53,9 @@ export default function EditMaterialPage({ params }: { params: Promise<{ id: str
       try {
         setIsLoading(true);
 
-        // Паралельно завантажуємо довідники та поточний матеріал із файлами
-        const [gRes, tRes, sRes, topRes, materialRes, filesRes] = await Promise.all([
+        const [gRes, tRes, materialRes, filesRes] = await Promise.all([
           supabase.from('grades').select('*').order('order'),
           supabase.from('material_types').select('*'),
-          supabase.from('sections').select('*'),
-          supabase.from('topics').select('*'),
           supabase.from('materials').select('*').eq('id', materialId).single(),
           supabase.from('material_files').select('*').eq('material_id', materialId),
         ]);
@@ -76,22 +66,16 @@ export default function EditMaterialPage({ params }: { params: Promise<{ id: str
         setTaxonomy({
           grades: gRes.data || [],
           materialTypes: tRes.data || [],
-          sections: sRes.data || [],
-          topics: topRes.data || [],
         });
 
-        // Заповнюємо форму наявними даними
         setTitle(mat.title || '');
         setDescription(mat.description || '');
         setContent(mat.content || '');
         setSelectedGrade(mat.grade_id || '');
-        setSelectedSection(mat.section_id || '');
-        setSelectedTopic(mat.topic_id || '');
         setSelectedType(mat.material_type_id || '');
         setExternalUrl(mat.external_url || '');
         setIsInteractive(mat.is_interactive || false);
         setIsPremium(mat.is_premium || false);
-        setPreviewUrl(mat.preview_url || '');
 
         setExistingFiles(filesRes.data || []);
       } catch (err: any) {
@@ -103,14 +87,6 @@ export default function EditMaterialPage({ params }: { params: Promise<{ id: str
 
     loadData();
   }, [supabase, materialId]);
-
-  const availableSections = selectedGrade
-    ? taxonomy.sections.filter((s) => s.grade_id === selectedGrade)
-    : taxonomy.sections;
-
-  const availableTopics = selectedSection
-    ? taxonomy.topics.filter((t) => t.section_id === selectedSection)
-    : [];
 
   const handleNewFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
@@ -149,7 +125,6 @@ export default function EditMaterialPage({ params }: { params: Promise<{ id: str
     setIsSubmitting(true);
 
     try {
-      // 1. Оновлюємо дані матеріалу в таблиці materials (без subject_id)
       const { error: updateError } = await supabase
         .from('materials')
         .update({
@@ -157,8 +132,6 @@ export default function EditMaterialPage({ params }: { params: Promise<{ id: str
           description: description.trim() || null,
           content: content.trim() || null,
           grade_id: selectedGrade,
-          section_id: selectedSection || null,
-          topic_id: selectedTopic || null,
           material_type_id: selectedType,
           external_url: externalUrl.trim() || null,
           is_interactive: isInteractive,
@@ -169,7 +142,6 @@ export default function EditMaterialPage({ params }: { params: Promise<{ id: str
 
       if (updateError) throw updateError;
 
-      // 2. Видаляємо файли, які адміністратор позначив на видалення
       if (filesToDelete.length > 0) {
         const { error: deleteFilesErr } = await supabase
           .from('material_files')
@@ -179,7 +151,6 @@ export default function EditMaterialPage({ params }: { params: Promise<{ id: str
         if (deleteFilesErr) throw deleteFilesErr;
       }
 
-      // 3. Завантажуємо нові прикріплені файли (якщо вони є)
       if (newFiles.length > 0) {
         for (const file of newFiles) {
           const fileExt = file.name.split('.').pop();
@@ -211,7 +182,7 @@ export default function EditMaterialPage({ params }: { params: Promise<{ id: str
 
       setSuccessMsg('Матеріал успішно оновлено!');
       setTimeout(() => {
-        router.push('/admin');
+        router.push('/admin/materials');
       }, 1200);
     } catch (err: any) {
       setErrorMsg(err.message || 'Помилка при оновленні матеріалу.');
@@ -236,11 +207,11 @@ export default function EditMaterialPage({ params }: { params: Promise<{ id: str
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
         <div className="flex items-center justify-between">
           <Link
-            href="/admin"
+            href="/admin/materials"
             className="inline-flex items-center gap-2 text-xs font-display font-bold text-[#5E687E] hover:text-[#1E56FF] transition-colors"
           >
             <ArrowLeft className="w-4 h-4" />
-            Назад до адмін-панелі
+            Назад до матеріалів
           </Link>
           <span className="text-xs font-mono-math font-semibold text-[#1E56FF] bg-[#EFF4FF] border border-[#D5E2FF] px-3 py-1 rounded-lg">
             Редагування матеріалу
@@ -313,7 +284,7 @@ export default function EditMaterialPage({ params }: { params: Promise<{ id: str
               />
             </div>
 
-            {/* Сітка таксономії (без предмета, на всю ширину або 2 колонки) */}
+            {/* Сітка таксономії (тільки Клас та Тип) */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="sm:col-span-2">
                 <label className="block font-display font-bold text-xs text-[#0D1117] uppercase tracking-wider mb-2">
@@ -321,11 +292,7 @@ export default function EditMaterialPage({ params }: { params: Promise<{ id: str
                 </label>
                 <select
                   value={selectedGrade}
-                  onChange={(e) => {
-                    setSelectedGrade(e.target.value);
-                    setSelectedSection('');
-                    setSelectedTopic('');
-                  }}
+                  onChange={(e) => setSelectedGrade(e.target.value)}
                   className="w-full text-sm bg-[#F7F9FD] border border-[#E2E8F4] text-[#0D1117] rounded-xl px-4 py-3 outline-none focus:border-[#1E56FF] cursor-pointer font-medium"
                   required
                 >
@@ -333,47 +300,6 @@ export default function EditMaterialPage({ params }: { params: Promise<{ id: str
                   {taxonomy.grades.map((grade) => (
                     <option key={grade.id} value={grade.id}>
                       {grade.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block font-display font-bold text-xs text-[#0D1117] uppercase tracking-wider mb-2">
-                  Розділ
-                </label>
-                <select
-                  value={selectedSection}
-                  onChange={(e) => {
-                    setSelectedSection(e.target.value);
-                    setSelectedTopic('');
-                  }}
-                  disabled={!selectedGrade}
-                  className="w-full text-sm bg-[#F7F9FD] border border-[#E2E8F4] text-[#0D1117] rounded-xl px-4 py-3 outline-none focus:border-[#1E56FF] cursor-pointer font-medium disabled:opacity-50"
-                >
-                  <option value="">-- Оберіть розділ --</option>
-                  {availableSections.map((sec) => (
-                    <option key={sec.id} value={sec.id}>
-                      {sec.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block font-display font-bold text-xs text-[#0D1117] uppercase tracking-wider mb-2">
-                  Тема
-                </label>
-                <select
-                  value={selectedTopic}
-                  onChange={(e) => setSelectedTopic(e.target.value)}
-                  disabled={!selectedSection}
-                  className="w-full text-sm bg-[#F7F9FD] border border-[#E2E8F4] text-[#0D1117] rounded-xl px-4 py-3 outline-none focus:border-[#1E56FF] cursor-pointer font-medium disabled:opacity-50"
-                >
-                  <option value="">-- Оберіть тему --</option>
-                  {availableTopics.map((top) => (
-                    <option key={top.id} value={top.id}>
-                      {top.name}
                     </option>
                   ))}
                 </select>
@@ -405,7 +331,6 @@ export default function EditMaterialPage({ params }: { params: Promise<{ id: str
                 Прикріплені файли
               </label>
 
-              {/* Наявні файли */}
               {existingFiles.length > 0 && (
                 <div className="space-y-2">
                   <p className="text-xs font-bold text-[#5E687E]">Вже завантажені файли:</p>
@@ -430,7 +355,6 @@ export default function EditMaterialPage({ params }: { params: Promise<{ id: str
                 </div>
               )}
 
-              {/* Зона завантаження нових файлів */}
               <div className="relative border-2 border-dashed border-[#E2E8F4] hover:border-[#1E56FF] rounded-2xl p-6 text-center transition-colors bg-[#F7F9FD]">
                 <input
                   type="file"
@@ -511,7 +435,7 @@ export default function EditMaterialPage({ params }: { params: Promise<{ id: str
 
             <div className="pt-6 border-t border-[#F1F4FA] flex justify-end gap-3">
               <Link
-                href="/admin"
+                href="/admin/materials"
                 className="font-display font-bold text-sm px-6 py-3.5 rounded-xl bg-gray-100 text-gray-700 hover:bg-gray-200 transition-all inline-flex items-center"
               >
                 Скасувати
@@ -519,7 +443,7 @@ export default function EditMaterialPage({ params }: { params: Promise<{ id: str
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="font-display font-bold text-sm px-8 py-3.5 rounded-xl bg-[#1E56FF] text-white hover:bg-[#0D33B3] disabled:opacity-50 transition-all shadow-sm inline-flex items-center gap-2 cursor-pointer"
+                className="font-display font-bold text-sm px8 py-3.5 rounded-xl bg-[#1E56FF] text-white hover:bg-[#0D33B3] disabled:opacity-50 transition-all shadow-sm inline-flex items-center gap-2 cursor-pointer"
               >
                 {isSubmitting ? (
                   <>
