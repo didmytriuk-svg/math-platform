@@ -34,6 +34,12 @@ function CatalogContent() {
   const [selectedSection, setSelectedSection] = useState('');
 
   useEffect(() => {
+    setSearchQuery(searchParams.get('q') || '');
+    setSelectedGrade(searchParams.get('grade') || '');
+    setSelectedType(searchParams.get('type') || '');
+  }, [searchParams]);
+
+  useEffect(() => {
     async function loadCatalogData() {
       setIsLoading(true);
       try {
@@ -71,6 +77,7 @@ function CatalogContent() {
     loadCatalogData();
   }, [supabase]);
 
+  // Надійна фільтрація матеріалів з урахуванням чисел, UUID та назв класів
   const filteredMaterials = useMemo(() => {
     return materials.filter((item) => {
       const matchesQuery = searchQuery.trim()
@@ -78,13 +85,39 @@ function CatalogContent() {
           item.description?.toLowerCase().includes(searchQuery.toLowerCase())
         : true;
 
-      const matchesGrade = selectedGrade ? item.grade_id === selectedGrade : true;
-      const matchesType = selectedType ? item.material_type_id === selectedType : true;
+      // Фільтрація класів (підтримує як цифри типу "7", так і UUID або назви)
+      let matchesGrade = true;
+      if (selectedGrade) {
+        if (selectedGrade === 'nmt') {
+          matchesGrade = item.grades?.name?.toLowerCase().includes('нмт') || item.title?.toLowerCase().includes('нмт');
+        } else {
+          const gradeObj = grades.find((g) => g.id === selectedGrade);
+          const gradeNum = gradeObj ? gradeObj.number : null;
+
+          matchesGrade = 
+            item.grade_id === selectedGrade || 
+            item.grades?.id === selectedGrade ||
+            item.grades?.number?.toString() === selectedGrade ||
+            (gradeNum !== null && item.grades?.number === gradeNum) ||
+            item.grades?.name?.toLowerCase().includes(selectedGrade.toLowerCase());
+        }
+      }
+
+      // Фільтрація типів матеріалів
+      let matchesType = true;
+      if (selectedType) {
+        matchesType = 
+          item.material_type_id === selectedType || 
+          item.material_types?.slug === selectedType ||
+          item.material_types?.id === selectedType ||
+          item.material_types?.name?.toLowerCase().includes(selectedType.toLowerCase());
+      }
+
       const matchesSection = selectedSection ? item.section_id === selectedSection : true;
 
       return matchesQuery && matchesGrade && matchesType && matchesSection;
     });
-  }, [materials, searchQuery, selectedGrade, selectedType, selectedSection]);
+  }, [materials, grades, searchQuery, selectedGrade, selectedType, selectedSection]);
 
   const resetFilters = () => {
     setSearchQuery('');

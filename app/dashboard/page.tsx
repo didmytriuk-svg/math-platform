@@ -1,71 +1,93 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { 
-  User, 
-  ShieldCheck, 
-  BookOpen, 
-  LogOut, 
-  Sparkles, 
-  Lock, 
-  CheckCircle2, 
-  ExternalLink,
-  Loader2,
-  ChevronRight
-} from 'lucide-react';
+import { LogOut, BookOpen, Sparkles, CheckCircle2, ShieldCheck, Loader2, Search, Filter } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 
 export default function TeacherDashboardPage() {
   const router = useRouter();
   const supabase = createClient();
 
-  const [isLoading, setIsLoading] = useState(true);
-  const [user, setUser] = useState<any>(null);
+  const [userEmail, setUserEmail] = useState<string>('');
   const [subscription, setSubscription] = useState<any>(null);
   const [materials, setMaterials] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Стани для пошуку та фільтрів у кабінеті
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedGradeFilter, setSelectedGradeFilter] = useState('all');
+  const [selectedTypeFilter, setSelectedTypeFilter] = useState('all');
 
   useEffect(() => {
     async function loadDashboardData() {
-      setIsLoading(true);
       try {
-        // 1. Перевіряємо поточного залогіненого користувача
-        const { data: { user: authUser }, error: authError } = await supabase.auth.getUser();
+        setIsLoading(true);
+        
+        let currentEmail = '';
+        if (typeof window !== 'undefined') {
+          currentEmail = localStorage.getItem('volya_user_email') || '';
+        }
 
-        if (authError || !authUser) {
+        if (!currentEmail) {
           router.push('/login');
           return;
         }
 
-        setUser(authUser);
+        setUserEmail(currentEmail);
+        const cleanEmail = currentEmail.trim().toLowerCase();
 
-        // 2. Отримуємо активну підписку викладача з таблиці user_subscriptions
-        const { data: subData } = await supabase
-          .from('user_subscriptions')
-          .select('*, grades(name)')
-          .eq('user_id', authUser.id)
-          .eq('is_active', true)
-          .maybeSingle();
+        const isMasterAdmin = cleanEmail === 'didmytriuk@gmail.com' || cleanEmail === 'dasha.hfun@gmail.com';
 
-        setSubscription(subData || { tier: 'free', is_active: false });
+        let subData = null;
 
-        // 3. Завантажуємо матеріали (якщо Pro — всі або фільтруємо за класом)
-        const { data: matsData } = await supabase
+        if (!isMasterAdmin) {
+          const { data, error } = await supabase
+            .from('user_subscriptions')
+            .select('*')
+            .ilike('email', cleanEmail)
+            .maybeSingle();
+
+          if (error) {
+            console.error('Помилка завантаження підписки:', error.message);
+          }
+          subData = data;
+        }
+
+        if (isMasterAdmin) {
+          setSubscription({
+            tier: 'pro_all',
+            expires_at: '2027-08-26T00:00:00.000Z',
+            grades: { name: 'Весь каталог' }
+          });
+        } else if (subData) {
+          let gradeObj = null;
+          if (subData.grade_id) {
+            const { data: gData } = await supabase
+              .from('grades')
+              .select('id, name')
+              .eq('id', subData.grade_id)
+              .maybeSingle();
+            gradeObj = gData;
+          }
+
+          setSubscription({
+            ...subData,
+            grades: gradeObj || { name: 'Обраний клас' }
+          });
+        } else {
+          setSubscription(null);
+        }
+
+        const { data: matData } = await supabase
           .from('materials')
-          .select(`
-            id,
-            title,
-            slug,
-            description,
-            is_premium,
-            grades ( id, name ),
-            material_types ( id, name )
-          `)
+          .select('*, grades(id, name), material_types(name)')
           .eq('is_published', true)
           .order('created_at', { ascending: false });
 
-        setMaterials(matsData || []);
+        setMaterials(matData || []);
+
       } catch (err) {
         console.error('Error loading dashboard:', err);
       } finally {
@@ -77,52 +99,102 @@ export default function TeacherDashboardPage() {
   }, [router, supabase]);
 
   const handleLogout = async () => {
-    await supabase.auth.signOut();
+    if (typeof window !== 'undefined') {
+      localStorage.clear();
+    }
     router.push('/login');
+    router.refresh();
   };
+
+  const cleanEmail = userEmail.trim().toLowerCase();
+  const isMasterAdmin = cleanEmail === 'didmytriuk@gmail.com' || cleanEmail === 'dasha.hfun@gmail.com';
+  
+  const isPro = Boolean(isMasterAdmin || (subscription && subscription.is_active !== false));
+  const isProAll = isMasterAdmin || subscription?.tier === 'pro_all';
+  const assignedGradeId = subscription?.grade_id;
+  const assignedGradeName = subscription?.grades?.name || 'Обраний клас';
+
+  // Фільтрація матеріалів за пошуком, класом та типом
+  const filteredMaterials = useMemo(() => {
+    return materials.filter((m) => {
+      const matchesSearch = 
+        m.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        m.description?.toLowerCase().includes(searchQuery.toLowerCase());
+
+      const matchesGrade = 
+        selectedGradeFilter === 'all' || m.grade_id === selectedGradeFilter;
+
+      const matchesType = 
+        selectedTypeFilter === 'all' || m.material_type_id === selectedTypeFilter;
+
+      return matchesSearch && matchesGrade && matchesType;
+    });
+  }, [materials, searchQuery, selectedGradeFilter, selectedTypeFilter]);
+
+  // Унікальні списки класів та типів для випадаючих фільтрів
+  const availableGrades = useMemo(() => {
+    const map = new Map();
+    materials.forEach((m) => {
+      if (m.grades) map.set(m.grades.id, m.grades.name);
+    });
+    return Array.from(map.entries()).map(([id, name]) => ({ id, name }));
+  }, [materials]);
+
+  const availableTypes = useMemo(() => {
+    const map = new Map();
+    materials.forEach((m) => {
+      if (m.material_types) map.set(m.material_type_id, m.material_types.name);
+    });
+    return Array.from(map.entries()).map(([id, name]) => ({ id, name }));
+  }, [materials]);
 
   if (isLoading) {
     return (
       <div className="min-h-screen bg-volya-grid flex items-center justify-center">
         <div className="flex items-center gap-2 font-display font-bold text-sm text-[#0D1117]">
           <Loader2 className="w-5 h-5 animate-spin text-[#1E56FF]" />
-          Завантаження особистого кабінету...
+          Завантаження кабінету...
         </div>
       </div>
     );
   }
 
-  const hasProAccess = subscription?.is_active && (subscription.tier === 'pro_all' || subscription.tier === 'grade_pro');
-
   return (
     <div className="min-h-screen bg-volya-grid py-10 sm:py-14">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
         
-        {/* Шапка кабінету */}
-        <div className="bg-white border border-[#E2E8F4] rounded-3xl p-6 sm:p-8 shadow-xs flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+        {/* Шапка профілю */}
+        <div className="bg-white border border-[#E2E8F4] rounded-3xl p-6 sm:p-8 shadow-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div className="flex items-center gap-4">
-            <div className="w-14 h-14 rounded-2xl bg-[#EFF4FF] border border-[#D5E2FF] text-[#1E56FF] flex items-center justify-center font-bold text-xl">
-              <User className="w-7 h-7" />
+            <div className="w-14 h-14 rounded-2xl bg-[#EFF4FF] text-[#1E56FF] flex items-center justify-center text-xl font-black">
+              {userEmail?.[0]?.toUpperCase() || 'V'}
             </div>
             <div>
-              <span className="text-[10px] font-mono-math uppercase tracking-wider text-[#5E687E] font-bold">Особистий кабінет викладача</span>
-              <h1 className="font-display font-black text-xl sm:text-2xl text-[#0D1117] mt-0.5">
-                {user?.email}
+              <p className="text-xs text-[#5E687E] font-display font-bold uppercase tracking-wider">Особистий кабінет викладача</p>
+              <h1 className="font-display font-black text-xl sm:text-2xl text-[#0D1117]">
+                {userEmail}
               </h1>
             </div>
           </div>
 
-          <div className="flex items-center gap-3 w-full md:w-auto">
+          <div className="flex items-center gap-3 w-full sm:w-auto">
+            {isMasterAdmin && (
+              <Link
+                href="/admin"
+                className="inline-flex items-center justify-center gap-2 text-xs font-display font-bold px-4 py-3 rounded-xl bg-[#1E56FF] text-white hover:bg-[#0D33B3] transition-colors"
+              >
+                Адмін-панель →
+              </Link>
+            )}
             <Link
               href="/catalog"
-              className="font-display font-bold text-xs px-4 py-2.5 rounded-xl bg-[#F7F9FD] border border-[#E2E8F4] text-[#0D1117] hover:border-[#1E56FF] transition-all"
+              className="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 text-xs font-display font-bold px-5 py-3 rounded-xl bg-[#F7F9FD] border border-[#E2E8F4] text-[#0D1117] hover:bg-[#EFF4FF] transition-colors"
             >
               Перейти в каталог →
             </Link>
             <button
-              type="button"
               onClick={handleLogout}
-              className="font-display font-bold text-xs px-4 py-2.5 rounded-xl bg-red-50 text-red-600 hover:bg-red-100 transition-colors inline-flex items-center gap-1.5 cursor-pointer"
+              className="inline-flex items-center justify-center gap-2 text-xs font-display font-bold px-4 py-3 rounded-xl bg-red-50 border border-red-200 text-red-600 hover:bg-red-100 transition-colors cursor-pointer"
             >
               <LogOut className="w-4 h-4" />
               Вийти
@@ -131,35 +203,30 @@ export default function TeacherDashboardPage() {
         </div>
 
         {/* Статус підписки */}
-        <div className={`border rounded-3xl p-6 sm:p-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6 ${
-          hasProAccess 
-            ? 'bg-gradient-to-br from-[#0D1117] to-[#1E293B] text-white border-transparent shadow-md' 
-            : 'bg-white border-[#E2E8F4] text-[#0D1117] shadow-xs'
-        }`}>
-          <div className="space-y-2">
-            <div className="flex items-center gap-2">
-              <span className={`text-[10px] font-mono-math uppercase tracking-wider font-bold px-2.5 py-0.5 rounded-md ${
-                hasProAccess ? 'bg-[#1E56FF] text-white' : 'bg-gray-100 text-gray-700'
-              }`}>
-                Ваш тарифний план
-              </span>
-            </div>
-            <h2 className="font-display font-black text-2xl">
-              {subscription.tier === 'pro_all' && 'Pro — Весь каталог (Безліміт)'}
-              {subscription.tier === 'grade_pro' && `Pro — Клас: ${subscription.grades?.name || 'Обраний клас'}`}
-              {subscription.tier === 'free' && 'Безкоштовний доступ'}
+        <div className={`border rounded-3xl p-6 sm:p-8 shadow-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6 ${isPro ? 'bg-[#F0FDF4] border-[#BBF7D0]' : 'bg-white border-[#E2E8F4]'}`}>
+          <div className="space-y-1">
+            <p className="text-xs font-display font-bold uppercase tracking-wider text-[#5E687E]">Ваш тарифний план</p>
+            <h2 className="font-display font-black text-2xl text-[#0D1117] flex items-center gap-2">
+              {isPro ? (
+                <>
+                  <ShieldCheck className="w-6 h-6 text-[#00BA7C]" />
+                  {isProAll ? 'Pro-доступ активний (Весь каталог 5–11 класи)' : `Pro-доступ активний (Клас: ${assignedGradeName})`}
+                </>
+              ) : (
+                'Безкоштовний доступ'
+              )}
             </h2>
-            <p className={`text-xs ${hasProAccess ? 'text-gray-300' : 'text-[#5E687E]'}`}>
-              {hasProAccess 
-                ? 'У вас є повний доступ до завантаження та перегляду всіх закритих матеріалів відповідно до вашої підписки.' 
+            <p className="text-xs text-[#5E687E]">
+              {isPro 
+                ? `Ваш доступ діє до: ${new Date(subscription?.expires_at || Date.now() + 31536000000).toLocaleDateString('uk-UA')}` 
                 : 'Оновіть свій тариф до Pro, щоб отримати повний доступ до всіх розробок, презентацій та контрольних робіт.'}
             </p>
           </div>
 
-          {!hasProAccess && (
+          {!isPro && (
             <Link
               href="/pricing"
-              className="font-display font-bold text-xs px-6 py-3 rounded-xl bg-[#1E56FF] text-white hover:bg-[#0D33B3] transition-colors inline-flex items-center gap-2 shrink-0 shadow-xs"
+              className="inline-flex items-center justify-center gap-2 font-display font-bold text-xs sm:text-sm px-6 py-3.5 bg-[#1E56FF] text-white hover:bg-[#0D33B3] transition-all rounded-xl shadow-xs"
             >
               <Sparkles className="w-4 h-4" />
               Отримати Pro-доступ
@@ -167,78 +234,113 @@ export default function TeacherDashboardPage() {
           )}
         </div>
 
-        {/* Список матеріалів (або доступних розробок) */}
-        <div className="space-y-4">
-          <div className="flex items-center justify-between px-1">
-            <h3 className="font-display font-black text-xl text-[#0D1117]">
+        {/* Секція матеріалів з пошуком та фільтрами */}
+        <div className="space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <h2 className="font-display font-black text-xl text-[#0D1117]">
               Доступні матеріали для ваших уроків
-            </h3>
+            </h2>
             <span className="text-xs font-mono-math text-[#5E687E]">
-              Всього розробок: <strong className="text-[#0D1117]">{materials.length}</strong>
+              Знайдено матеріалів: {filteredMaterials.length} з {materials.length}
             </span>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-            {materials.map((m) => {
-              const isLocked = m.is_premium && !hasProAccess;
+          {/* Панель пошуку та фільтрації */}
+          <div className="bg-white border border-[#E2E8F4] rounded-2xl p-4 sm:p-5 shadow-xs grid grid-cols-1 sm:grid-cols-3 gap-3">
+            {/* Пошук */}
+            <div className="relative">
+              <Search className="w-4 h-4 text-[#5E687E] absolute left-3.5 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Пошук за назвою або описом..."
+                className="w-full text-xs bg-[#F7F9FD] border border-[#E2E8F4] rounded-xl pl-10 pr-4 py-3 text-[#0D1117] outline-none focus:border-[#1E56FF] focus:bg-white transition"
+              />
+            </div>
 
-              return (
-                <div
-                  key={m.id}
-                  className="bg-white border border-[#E2E8F4] rounded-2xl p-5 flex flex-col justify-between transition-all hover:border-[#1E56FF] shadow-2xs"
-                >
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-1.5">
-                        {m.grades?.name && (
-                          <span className="px-2.5 py-0.5 rounded-md bg-[#EFF4FF] text-[#1E56FF] font-display font-bold text-[11px]">
-                            {m.grades.name}
-                          </span>
-                        )}
-                        {m.material_types?.name && (
-                          <span className="text-[11px] font-mono-math text-[#5E687E]">
-                            {m.material_types.name}
-                          </span>
-                        )}
+            {/* Фільтр за класом */}
+            <div>
+              <select
+                value={selectedGradeFilter}
+                onChange={(e) => setSelectedGradeFilter(e.target.value)}
+                className="w-full text-xs bg-[#F7F9FD] border border-[#E2E8F4] rounded-xl px-4 py-3 text-[#0D1117] outline-none focus:border-[#1E56FF] focus:bg-white transition cursor-pointer"
+              >
+                <option value="all">Усі класи</option>
+                {availableGrades.map((g) => (
+                  <option key={g.id} value={g.id}>{g.name}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Фільтр за типом матеріалу */}
+            <div>
+              <select
+                value={selectedTypeFilter}
+                onChange={(e) => setSelectedTypeFilter(e.target.value)}
+                className="w-full text-xs bg-[#F7F9FD] border border-[#E2E8F4] rounded-xl px-4 py-3 text-[#0D1117] outline-none focus:border-[#1E56FF] focus:bg-white transition cursor-pointer"
+              >
+                <option value="all">Усі типи матеріалів</option>
+                {availableTypes.map((t) => (
+                  <option key={t.id} value={t.id}>{t.name}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {/* Сітка матеріалів */}
+          {filteredMaterials.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {filteredMaterials.map((m) => {
+                const materialGradeId = m.grade_id;
+                const isFree = !m.is_premium && m.access_tier !== 'grade_pro' && m.access_tier !== 'pro_all';
+                
+                const hasMaterialAccess = isMasterAdmin || isProAll || isFree || (subscription?.tier === 'grade_pro' && assignedGradeId && materialGradeId === assignedGradeId);
+
+                return (
+                  <div key={m.id} className="bg-white border border-[#E2E8F4] rounded-2xl p-5 shadow-xs space-y-3 flex flex-col justify-between hover:border-[#D5E2FF] transition-all">
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="px-2 py-0.5 rounded bg-[#EFF4FF] text-[#1E56FF] font-mono-math font-bold text-[10px]">
+                          {m.grades?.name || 'Клас'}
+                        </span>
+                        <span className="text-[10px] font-bold text-[#5E687E]">
+                          {m.material_types?.name || 'Матеріал'}
+                        </span>
                       </div>
-
-                      {m.is_premium ? (
-                        <span className="text-[10px] font-mono-math font-semibold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded">
-                          🔒 Pro
-                        </span>
-                      ) : (
-                        <span className="text-[10px] font-mono-math font-semibold text-[#00BA7C] bg-[#F0FDF4] px-2 py-0.5 rounded">
-                          Free
-                        </span>
-                      )}
+                      <h3 className="font-display font-bold text-sm text-[#0D1117] line-clamp-2">
+                        {m.title}
+                      </h3>
+                      <p className="text-xs text-[#5E687E] line-clamp-2">
+                        {m.description || 'Детальний опис та методичні матеріали для проведення уроку.'}
+                      </p>
                     </div>
 
-                    <h4 className="font-display font-bold text-sm text-[#0D1117] line-clamp-2">
-                      {m.title}
-                    </h4>
-                    {m.description && (
-                      <p className="text-xs text-[#5E687E] line-clamp-2 leading-relaxed">
-                        {m.description}
-                      </p>
-                    )}
+                    <div className="pt-3 border-t border-[#F1F4FA] flex items-center justify-between">
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${hasMaterialAccess ? 'bg-emerald-50 text-[#00BA7C]' : 'bg-amber-50 text-amber-700'}`}>
+                        {hasMaterialAccess ? (isFree ? 'Free' : 'Доступно') : 'Потрібна підписка'}
+                      </span>
+                      <Link
+                        href={`/material/${m.id}`}
+                        className="text-xs font-display font-bold text-[#1E56FF] hover:underline inline-flex items-center gap-1"
+                      >
+                        {hasMaterialAccess ? 'Відкрити →' : 'Детальніше →'}
+                      </Link>
+                    </div>
                   </div>
-
-                  <div className="pt-4 mt-4 border-t border-[#F1F4FA] flex items-center justify-between">
-                    <span className="text-[11px] font-mono-math text-[#94A3B8]">
-                      {isLocked ? 'Потребує підписки' : 'Доступно'}
-                    </span>
-                    <Link
-                      href={`/material/${m.id}`}
-                      className="font-display font-bold text-xs px-3 py-1.5 rounded-lg bg-[#0D1117] text-white hover:bg-[#1E56FF] transition-colors inline-flex items-center gap-1"
-                    >
-                      Відкрити
-                      <ChevronRight className="w-3 h-3" />
-                    </Link>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="bg-white border border-[#E2E8F4] rounded-2xl p-12 text-center space-y-2">
+              <p className="font-display font-bold text-sm text-[#0D1117]">
+                Нічого не знайдено за вашим запитом.
+              </p>
+              <p className="text-xs text-[#5E687E]">
+                Спробуйте змінити пошуковий запит або скинути фільтри.
+              </p>
+            </div>
+          )}
         </div>
 
       </div>

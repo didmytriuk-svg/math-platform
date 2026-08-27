@@ -21,13 +21,14 @@ export default function AdminLoginPage() {
     setIsLoading(true);
 
     try {
-      const { error } = await supabase.auth.signInWithPassword({
+      const { data, error } = await supabase.auth.signInWithPassword({
         email: email.trim(),
         password,
       });
 
       if (error) {
-        throw new Error('Невірний email або пароль.');
+        console.error('Помилка Supabase Auth:', error);
+        throw new Error(error.message); // Покажемо реальну системну помилку
       }
 
       router.push('/admin');

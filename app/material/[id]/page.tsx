@@ -418,7 +418,7 @@ export default function MaterialDetailPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [copiedContent, setCopiedContent] = useState(false);
-  const [hasSubscription, setHasSubscription] = useState(false);
+  const [hasAccess, setHasAccess] = useState(false);
   const [userEmail, setUserEmail] = useState<string | null>(null);
 
   useEffect(() => {
@@ -442,26 +442,7 @@ export default function MaterialDetailPage() {
         setMaterial(mat);
         setMaterialFiles(filesRes.data || []);
 
-        // Перевіряємо авторизацію та активну підписку користувача
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user) {
-          setUserEmail(user.email || null);
-          const { data: subData } = await supabase
-            .from('user_subscriptions')
-            .select('*')
-            .eq('user_id', user.id)
-            .eq('is_active', true)
-            .maybeSingle();
-
-          if (subData) {
-            if (!subData.expires_at || new Date(subData.expires_at) > new Date()) {
-              if (subData.tier === 'pro_all' || subData.tier === 'grade_pro') {
-                setHasSubscription(true);
-              }
-            }
-          }
-        }
-
+        // Завантажуємо назви зв'язаних довідників (клас, тип тощо)
         const [gRes, tRes, sRes, topRes] = await Promise.all([
           mat.grade_id ? supabase.from('grades').select('name').eq('id', mat.grade_id).maybeSingle() : Promise.resolve({ data: null }),
           mat.material_type_id ? supabase.from('material_types').select('name, slug').eq('id', mat.material_type_id).maybeSingle() : Promise.resolve({ data: null }),
@@ -474,6 +455,57 @@ export default function MaterialDetailPage() {
         setTypeSlug(tRes.data?.slug || null);
         setSectionName(sRes.data?.name || null);
         setTopicName(topRes.data?.name || null);
+
+        // Перевірка авторизації та прав доступу
+        let currentEmail = '';
+        if (typeof window !== 'undefined') {
+          currentEmail = localStorage.getItem('volya_user_email') || '';
+        }
+
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user?.email) {
+          currentEmail = user.email;
+        }
+
+        if (currentEmail) {
+          setUserEmail(currentEmail);
+          const cleanEmail = currentEmail.trim().toLowerCase();
+
+          // Головні адміністратори мають доступ до всього
+          if (cleanEmail === 'didmytriuk@gmail.com' || cleanEmail === 'dasha.hfun@gmail.com') {
+            setHasAccess(true);
+          } else {
+            // Шукаємо підписку викладача в базі
+            const { data: subData } = await supabase
+              .from('user_subscriptions')
+              .select('*')
+              .ilike('email', cleanEmail)
+              .maybeSingle();
+
+            if (subData && subData.is_active) {
+              const expiresOk = !subData.expires_at || new Date(subData.expires_at) > new Date();
+              if (expiresOk) {
+                // Якщо тариф "Весь каталог" — даємо доступ до всього
+                if (subData.tier === 'pro_all') {
+                  setHasAccess(true);
+                } 
+                // Якщо тариф "Один клас" — перевіряємо, чи збігається клас матеріалу з купленим класом підписки
+                else if (subData.tier === 'grade_pro') {
+                  if (subData.grade_id && mat.grade_id && subData.grade_id === mat.grade_id) {
+                    setHasAccess(true);
+                  } else {
+                    setHasAccess(false);
+                  }
+                }
+              }
+            }
+          }
+        }
+
+        // Якщо матеріал безкоштовний (не premium) — доступ є у всіх
+        if (!mat.is_premium && mat.access_tier !== 'grade_pro' && mat.access_tier !== 'pro_all') {
+          setHasAccess(true);
+        }
 
         if (mat.grade_id) {
           const { data: related } = await supabase
@@ -548,8 +580,9 @@ export default function MaterialDetailPage() {
     );
   }
 
-  // Визначаємо, чи закритий матеріал підпискою
-  const isLocked = (material.is_premium || material.access_tier === 'grade_pro' || material.access_tier === 'pro_all') && !hasSubscription;
+  // Матеріал заблокований, якщо він преміальний/про, а у користувача немає точного доступу
+  const isPremiumMaterial = material.is_premium || material.access_tier === 'grade_pro' || material.access_tier === 'pro_all';
+  const isLocked = isPremiumMaterial && !hasAccess;
 
   const formattedDate = material.created_at
     ? new Date(material.created_at).toLocaleDateString('uk-UA', {
@@ -613,12 +646,12 @@ export default function MaterialDetailPage() {
               {isLocked ? (
                 <span className="px-3 py-1 rounded-lg bg-amber-50 text-amber-700 border border-amber-200 font-mono-math font-semibold text-xs flex items-center gap-1.5">
                   <Lock className="w-3.5 h-3.5" />
-                  Pro підписка
+                  Pro підписка (потрібен цей клас)
                 </span>
               ) : (
                 <span className="px-3 py-1 rounded-lg bg-[#F0FDF4] text-[#00BA7C] font-mono-math font-semibold text-xs flex items-center gap-1.5">
                   <CheckCircle2 className="w-3.5 h-3.5" />
-                  Доступно для викладача
+                  Доступно за вашим тарифом
                 </span>
               )}
             </div>
@@ -662,9 +695,9 @@ export default function MaterialDetailPage() {
               <Lock className="w-8 h-8" />
             </div>
             <div className="space-y-2 max-w-lg mx-auto">
-              <h3 className="font-display font-black text-2xl">Цей матеріал доступний за підпискою Pro</h3>
+              <h3 className="font-display font-black text-2xl">Матеріал доступний для іншого класу або за повним тарифом Pro</h3>
               <p className="text-xs sm:text-sm text-gray-300 leading-relaxed">
-                Отримайте необмежений доступ до повного каталогу розробок, презентацій, контрольних та інтерактивних матеріалів для уроків математики 5–11 класів.
+                У вас активовано тариф на один конкретний клас. Щоб отримати доступ до матеріалів цього класу, оновіть підписку до повного каталогу або зверніться до адміністратора.
               </p>
             </div>
             <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
@@ -673,16 +706,8 @@ export default function MaterialDetailPage() {
                 className="w-full sm:w-auto font-display font-bold text-xs sm:text-sm px-8 py-3.5 rounded-xl bg-[#1E56FF] text-white hover:bg-blue-600 transition-colors inline-flex items-center justify-center gap-2 shadow-sm"
               >
                 <Sparkles className="w-4 h-4" />
-                Оформити підписку Pro
+                Отримати повний Pro-доступ
               </Link>
-              <a
-                href="https://t.me/"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="w-full sm:w-auto font-display font-bold text-xs sm:text-sm px-8 py-3.5 rounded-xl bg-white/10 text-white hover:bg-white/20 transition-colors inline-flex items-center justify-center gap-2"
-              >
-                Зв'язатися з адміністратором
-              </a>
             </div>
           </div>
         ) : (
