@@ -8,8 +8,7 @@ import {
   ChevronRight, 
   Loader2, 
   SearchX,
-  X,
-  Lock
+  X 
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 
@@ -77,33 +76,30 @@ function CatalogContent() {
     loadCatalogData();
   }, [supabase]);
 
-  // Надійна фільтрація матеріалів з урахуванням чисел, UUID та назв класів
+  // Абсолютно надійна фільтрація
   const filteredMaterials = useMemo(() => {
     return materials.filter((item) => {
+      // 1. Пошук за текстовим запитом
       const matchesQuery = searchQuery.trim()
         ? item.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
           item.description?.toLowerCase().includes(searchQuery.toLowerCase())
         : true;
 
-      // Фільтрація класів (підтримує як цифри типу "7", так і UUID або назви)
+      // 2. Фільтрація класів
       let matchesGrade = true;
       if (selectedGrade) {
-        if (selectedGrade === 'nmt') {
-          matchesGrade = item.grades?.name?.toLowerCase().includes('нмт') || item.title?.toLowerCase().includes('нмт');
-        } else {
-          const gradeObj = grades.find((g) => g.id === selectedGrade);
-          const gradeNum = gradeObj ? gradeObj.number : null;
+        const selectedGradeObj = grades.find((g) => g.id === selectedGrade);
+        const selectedGradeName = selectedGradeObj ? selectedGradeObj.name?.toLowerCase() : '';
+        const itemGradeName = item.grades?.name?.toLowerCase() || '';
 
-          matchesGrade = 
-            item.grade_id === selectedGrade || 
-            item.grades?.id === selectedGrade ||
-            item.grades?.number?.toString() === selectedGrade ||
-            (gradeNum !== null && item.grades?.number === gradeNum) ||
-            item.grades?.name?.toLowerCase().includes(selectedGrade.toLowerCase());
-        }
+        matchesGrade = 
+          item.grade_id === selectedGrade ||
+          item.grades?.id === selectedGrade ||
+          (selectedGradeName && itemGradeName.includes(selectedGradeName)) ||
+          itemGradeName.includes(selectedGrade.toLowerCase());
       }
 
-      // Фільтрація типів матеріалів
+      // 3. Фільтрація типів матеріалів
       let matchesType = true;
       if (selectedType) {
         matchesType = 
@@ -113,6 +109,7 @@ function CatalogContent() {
           item.material_types?.name?.toLowerCase().includes(selectedType.toLowerCase());
       }
 
+      // 4. Фільтрація розділів
       const matchesSection = selectedSection ? item.section_id === selectedSection : true;
 
       return matchesQuery && matchesGrade && matchesType && matchesSection;
@@ -186,7 +183,7 @@ function CatalogContent() {
                 onChange={(e) => setSelectedGrade(e.target.value)}
                 className="w-full text-xs sm:text-sm px-3.5 py-2.5 bg-[#F7F9FD] border border-[#E2E8F4] rounded-xl outline-none focus:border-[#1E56FF] font-medium cursor-pointer"
               >
-                <option value="">Усі класи (5–11 та НМТ)</option>
+                <option value="">Усі класи</option>
                 {grades.map((g) => (
                   <option key={g.id} value={g.id}>
                     {g.name}
